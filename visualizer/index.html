@@ -237,7 +237,7 @@
   /* ── MAIN SPLIT SHELL ── */
   .shell {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 316px 1fr;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -250,6 +250,8 @@
     border-right: 1px solid var(--hairline);
     background: rgba(5, 9, 20, 0.55);
     min-height: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .rail-controls {
@@ -276,12 +278,16 @@
   .rail-search::placeholder { color: var(--ink-4); }
 
   .rail-subfilters {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 78px auto;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+    width: 100%;
+    min-width: 0;
   }
   .rail-subfilters select {
+    width: 100%;
+    min-width: 0;
     background: transparent;
     border: none;
     color: var(--ink-3);
@@ -289,7 +295,8 @@
     font-family: var(--font-mono);
     outline: none;
     cursor: pointer;
-    max-width: 155px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .rail-subfilters select:hover { color: var(--ink-2); }
   .rail-subfilters select option { background: #0a1022; color: var(--ink); }
@@ -301,6 +308,8 @@
     font-size: 11px;
     color: var(--ink-3);
     cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .check-inline:hover { color: var(--ink-2); }
 
