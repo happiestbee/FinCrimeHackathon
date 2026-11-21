@@ -1,4 +1,9 @@
-data/
+﻿data/
+dev/
+adversarial/
+sample_data/
+*.xlsx
+*.docx
 .env
 *.env
 __pycache__/
