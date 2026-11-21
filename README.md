@@ -9,6 +9,10 @@ Zero-dependency Python 3 neuro-symbolic entity resolution system built for the *
 - `visualizer/` — Local zero-dependency web dashboard (`EntityLens`) for inspecting resolution graphs, Search Shield filtering, and policy evidence.
 - `.env.example` — Environment template for `OPENROUTER_API_KEY` (and optional local `XAI_API_KEY`).
 
+Make sure to add the OPENROUTER_API_KEY to your environment variables before running the system in .env file or directly in your shell.
+Note that there is sample data being used for the site hosting, but none of the actual data has been published in accordance with the competition rules. The data used for the site is purely synthetic. 
+Partial inspiration for the swarm UI from [swarm-site](https://califa.github.io/swarm-site/)
+
 ## Quick Start
 
 ```bash
