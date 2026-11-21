@@ -1,0 +1,12 @@
+data/
+.env
+*.env
+__pycache__/
+*.pyc
+.DS_Store
+.pytest_cache/
+*.egg-info/
+
+# test data
+system/tests/adversarial
+system/tests/sample_data
