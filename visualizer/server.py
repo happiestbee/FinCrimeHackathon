@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -41,6 +42,25 @@ COST_MATRIX = {
 }
 
 
+def load_dotenv_if_present() -> None:
+    """Load key=value pairs from .env at repo root without overriding set env vars."""
+    env_path = REPO_ROOT / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and not os.environ.get(k) and v:
+                os.environ[k] = v
+    except Exception:
+        pass
+
+
 def discover_datasets() -> list[dict[str, Any]]:
     datasets: list[dict[str, Any]] = []
 
@@ -55,6 +75,20 @@ def discover_datasets() -> list[dict[str, Any]]:
                 if (sample_dir / "expected_labels.jsonl").exists()
                 else None,
                 "hit_count_hint": 20,
+            }
+        )
+
+    adv_dir = SYSTEM_DIR / "tests" / "adversarial"
+    if (adv_dir / "hits.jsonl").exists():
+        datasets.append(
+            {
+                "id": "adversarial",
+                "name": "Adversarial Stress Suite (180 hits)",
+                "data_dir": str(adv_dir),
+                "labels_path": str(adv_dir / "practice_labels.jsonl")
+                if (adv_dir / "practice_labels.jsonl").exists()
+                else None,
+                "hit_count_hint": 180,
             }
         )
 
@@ -78,26 +112,30 @@ def discover_datasets() -> list[dict[str, Any]]:
 class DatasetSession:
     """In-memory resolved pipeline session for one screening dataset directory."""
 
-    def __init__(self, spec: dict[str, Any]) -> None:
+    def __init__(self, spec: dict[str, Any], offline: bool = False) -> None:
         self.spec = spec
         self.id = spec["id"]
         self.name = spec["name"]
         t0 = time.monotonic()
 
         self.store = DataStore(spec["data_dir"])
-        offline_llm = OpenRouterClient(api_key="")
-        offline_llm.api_key = ""
+        if offline:
+            llm_client = OpenRouterClient(api_key="")
+            llm_client.api_key = ""
+            llm_client.enabled = False
+        else:
+            llm_client = OpenRouterClient()
         verifier = ExtractionVerifier(self.store.name_matcher, self.store.geo)
         self.customer_resolver = CustomerResolver(
-            self.store, llm_client=offline_llm, verifier=verifier
+            self.store, llm_client=llm_client, verifier=verifier
         )
         self.search_shield = SearchShield(
-            self.store, llm_client=offline_llm, verifier=verifier
+            self.store, llm_client=llm_client, verifier=verifier
         )
         self.watchlist_resolver = WatchlistResolver(
             self.store,
             search_shield=self.search_shield,
-            llm_client=offline_llm,
+            llm_client=llm_client,
             verifier=verifier,
         )
         self.engine = PolicyEngine(self.store.name_matcher, self.store.geo)
@@ -134,11 +172,35 @@ class DatasetSession:
         reason_counts: Counter[str] = Counter()
         resolution_counts: Counter[str] = Counter()
 
-        for hit in self.store.hits:
+        if llm_client.enabled and len(self.store.hits) > 1:
+            unique_alerts = {
+                h["alert_id"]: self.store.alerts_by_id[h["alert_id"]] for h in self.store.hits
+            }
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                alert_futures = {
+                    aid: executor.submit(self.customer_resolver.resolve_alert, alert)
+                    for aid, alert in unique_alerts.items()
+                }
+                hit_futures = [
+                    executor.submit(self.watchlist_resolver.resolve_hit, hit)
+                    for hit in self.store.hits
+                ]
+                resolved_pairs = [
+                    (alert_futures[hit["alert_id"]].result(), hf.result())
+                    for hit, hf in zip(self.store.hits, hit_futures)
+                ]
+        else:
+            resolved_pairs = [
+                (
+                    self.customer_resolver.resolve_alert(self.store.alerts_by_id[hit["alert_id"]]),
+                    self.watchlist_resolver.resolve_hit(hit),
+                )
+                for hit in self.store.hits
+            ]
+
+        for hit, (resolved_alert, hit_profile) in zip(self.store.hits, resolved_pairs):
             hid = hit["hit_id"]
             alert = self.store.alerts_by_id[hit["alert_id"]]
-            resolved_alert = self.customer_resolver.resolve_alert(alert)
-            hit_profile = self.watchlist_resolver.resolve_hit(hit)
             screened_pd = parse_partial_date(alert.get("screened_at"), day_first=True)
             screened_dt = screened_pd.latest if screened_pd is not None else date.today()
 
@@ -207,6 +269,12 @@ class DatasetSession:
 
         self.load_time_ms = round((time.monotonic() - t0) * 1000.0, 1)
         self.label_stats = self._compute_label_stats()
+        self.llm_info = {
+            "enabled": llm_client.enabled,
+            "backend": llm_client.backend if llm_client.enabled else "offline",
+            "model": llm_client.model if llm_client.enabled else None,
+            "stats": dict(llm_client.stats),
+        }
         self.summary_payload = {
             "dataset": {
                 "id": self.id,
@@ -214,6 +282,7 @@ class DatasetSession:
                 "data_dir": self.spec["data_dir"],
             },
             "load_time_ms": self.load_time_ms,
+            "llm_info": self.llm_info,
             "totals": {
                 "hits": len(self.summary_hits),
                 "alerts": len(self.store.alerts),
@@ -673,7 +742,8 @@ class DatasetSession:
 class VisualizerAppState:
     """Thread-safe registry managing lazy loading and caching of datasets."""
 
-    def __init__(self, preload_sample: bool = True) -> None:
+    def __init__(self, preload_sample: bool = True, offline: bool = False) -> None:
+        self.offline = offline
         self.specs = {d["id"]: d for d in discover_datasets()}
         self.sessions: dict[str, DatasetSession] = {}
         self._lock = threading.Lock()
@@ -698,7 +768,9 @@ class VisualizerAppState:
             return None
         with self._lock:
             if dataset_id not in self.sessions:
-                self.sessions[dataset_id] = DatasetSession(self.specs[dataset_id])
+                self.sessions[dataset_id] = DatasetSession(
+                    self.specs[dataset_id], offline=self.offline
+                )
             return self.sessions[dataset_id]
 
 
@@ -766,6 +838,7 @@ def make_handler(app_state: VisualizerAppState) -> type[BaseHTTPRequestHandler]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv_if_present()
     parser = argparse.ArgumentParser(description="Start the Screening Entity Resolution Visualizer.")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8765, help="Bind port (default 8765)")
@@ -774,11 +847,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not preload sample dataset on startup",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disable LLM extraction fallback even if an API key is configured",
+    )
     args = parser.parse_args(argv)
 
-    app_state = VisualizerAppState(preload_sample=not args.no_preload)
+    app_state = VisualizerAppState(preload_sample=not args.no_preload, offline=args.offline)
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app_state))
-    print(f"[visualizer] listening on http://{args.host}:{args.port} (datasets={list(app_state.specs)})", flush=True)
+    print(f"[visualizer] listening on http://{args.host}:{args.port} (datasets={list(app_state.specs)}, offline={args.offline})", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -3,731 +3,989 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EntityLens — Watchlist Entity Resolution Visualizer</title>
+<title>EntityLens — Cobalt XAI Screening Studio</title>
 <style>
   :root {
-    --bg-base: #070b14;
-    --bg-surface: #0f172a;
-    --bg-elevated: #162033;
-    --bg-hover: #1e293b;
-    --border: #26334a;
-    --border-strong: #334155;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --void: #03060f;
+    --surface: #070c1a;
+    --surface-subtle: rgba(15, 23, 42, 0.42);
+    --glass: rgba(9, 15, 32, 0.82);
+    --hairline: rgba(148, 163, 184, 0.12);
+    --hairline-strong: rgba(148, 163, 184, 0.24);
+
+    --ink: #f8fafc;
+    --ink-2: #cbd5e1;
+    --ink-3: #64748b;
+    --ink-4: #475569;
+
+    --cobalt: #3b82f6;
+    --cobalt-bright: #60a5fa;
+    --indigo: #6366f1;
+    --cyan: #22d3ee;
 
     --emerald: #10b981;
-    --emerald-bg: rgba(16, 185, 129, 0.14);
-    --emerald-border: rgba(16, 185, 129, 0.38);
-
-    --rose: #f43f5e;
-    --rose-bg: rgba(244, 63, 94, 0.14);
-    --rose-border: rgba(244, 63, 94, 0.38);
-
+    --emerald-soft: rgba(16, 185, 129, 0.14);
+    --crimson: #f43f5e;
+    --crimson-soft: rgba(244, 63, 94, 0.14);
     --amber: #f59e0b;
-    --amber-bg: rgba(245, 158, 11, 0.14);
-    --amber-border: rgba(245, 158, 11, 0.38);
+    --amber-soft: rgba(245, 158, 11, 0.14);
 
-    --indigo: #6366f1;
-    --indigo-bg: rgba(99, 102, 241, 0.16);
-    --indigo-border: rgba(99, 102, 241, 0.42);
-
-    --cyan: #06b6d4;
-    --cyan-bg: rgba(6, 182, 212, 0.14);
-    --cyan-border: rgba(6, 182, 212, 0.38);
-
-    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
-    background: var(--bg-base);
-    color: var(--text-primary);
+    height: 100%;
+    background: var(--void);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-size: 13px;
-    line-height: 1.45;
-    height: 100%;
+    line-height: 1.5;
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Layout Shell */
-  .app-shell {
+  /* Atmospheric Cobalt Nebula Backdrop */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 45% at 62% -10%, rgba(59, 130, 246, 0.16), transparent 72%),
+      radial-gradient(ellipse 45% 35% at 15% 100%, rgba(99, 102, 241, 0.09), transparent 70%);
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
   }
 
-  /* Top Bar */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 10px 18px;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .brand-logo {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #4f46e5, #06b6d4);
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    color: #fff;
-    font-size: 14px;
-    letter-spacing: -0.5px;
-    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.35);
-  }
-  .brand-title {
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.2px;
-  }
-  .brand-sub {
-    color: var(--text-muted);
-    font-size: 11px;
-  }
-
-  .topbar-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  select, input[type="text"], button {
-    font-family: inherit;
-    font-size: 12px;
-    color: var(--text-primary);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-strong);
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  select, input[type="text"] { padding: 6px 10px; }
-  select:focus, input[type="text"]:focus { border-color: var(--indigo); }
-  button {
-    padding: 5px 10px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover { background: var(--bg-hover); border-color: #475569; }
-
-  .score-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 11px;
-    border-radius: 999px;
-    background: var(--emerald-bg);
-    border: 1px solid var(--emerald-border);
-    color: #6ee7b7;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .score-badge.warn {
-    background: var(--amber-bg);
-    border-color: var(--amber-border);
-    color: #fcd34d;
-  }
-  .cost-pill {
-    padding: 5px 10px;
-    border-radius: 6px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 11px;
-    white-space: nowrap;
-  }
-
-  /* Analytics Strip */
-  .analytics-strip {
-    background: #0b1120;
-    border-bottom: 1px solid var(--border);
-    padding: 10px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .kpi-row {
-    display: flex;
-    align-items: stretch;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .kpi-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 12px;
-    border-radius: 8px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: border-color 0.15s, transform 0.1s, background 0.15s;
-    min-width: 145px;
-  }
-  .kpi-card:hover { background: var(--bg-elevated); border-color: #475569; }
-  .kpi-card.active {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 1px var(--cyan-border) inset;
-    background: rgba(6, 182, 212, 0.08);
-  }
-  .kpi-card.active.diff { border-color: var(--emerald); background: var(--emerald-bg); box-shadow: none; }
-  .kpi-card.active.same { border-color: var(--rose); background: var(--rose-bg); box-shadow: none; }
-  .kpi-card.active.rev { border-color: var(--amber); background: var(--amber-bg); box-shadow: none; }
-
-  .kpi-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .kpi-val {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1.1;
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .kicker {
     font-family: var(--font-mono);
-  }
-  .kpi-lbl {
     font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-secondary);
-  }
-  .kpi-pct {
-    margin-left: auto;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    color: var(--text-muted);
+    color: var(--ink-3);
   }
 
-  .stacked-bar-wrap {
-    flex: 1;
-    min-width: 200px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding: 4px 10px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-  .stacked-bar {
-    height: 10px;
-    border-radius: 999px;
-    overflow: hidden;
-    display: flex;
-    background: var(--bg-elevated);
-  }
-  .sb-diff { background: var(--emerald); }
-  .sb-same { background: var(--rose); }
-  .sb-rev { background: var(--amber); }
-  .stacked-legend {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-
-  .reason-chips {
+  /* ── TOP BAR (48px Architectural Ribbon) ── */
+  .topbar {
+    height: 48px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 2px;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--hairline);
+    background: rgba(3, 6, 15, 0.72);
+    backdrop-filter: blur(14px);
+    flex-shrink: 0;
   }
-  .reason-chip {
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13.5px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .brand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, var(--cobalt), var(--cyan));
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    transform: rotate(45deg);
+  }
+  .sep-v {
+    width: 1px;
+    height: 16px;
+    background: var(--hairline-strong);
+  }
+
+  select.minimal-select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--ink-2);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 4px 18px 4px 2px;
+    cursor: pointer;
+    outline: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+    background-position: calc(100% - 8px) 11px, calc(100% - 4px) 11px;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+  }
+  select.minimal-select:hover { color: var(--ink); }
+  select.minimal-select option { background: #0a1022; color: var(--ink); }
+
+  /* Inline Telemetry Metrics */
+  .telemetry-strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .t-metric {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 11px;
-    white-space: nowrap;
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
     cursor: pointer;
-    user-select: none;
+    border-bottom: 1.5px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .reason-chip:hover { border-color: #475569; color: var(--text-primary); }
-  .reason-chip.active {
-    background: var(--indigo-bg);
-    border-color: var(--indigo);
-    color: #c7d2fe;
-    font-weight: 600;
+  .t-metric:hover { color: var(--ink); }
+  .t-metric.active { color: var(--ink); border-bottom-color: var(--cobalt-bright); }
+  .t-metric.active.diff { border-bottom-color: var(--emerald); }
+  .t-metric.active.same { border-bottom-color: var(--crimson); }
+  .t-metric.active.rev { border-bottom-color: var(--amber); }
+  .t-metric strong { color: var(--ink); font-weight: 600; }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
   }
-  .reason-chip .rc-cnt {
+  .dot.diff { background: var(--emerald); box-shadow: 0 0 8px rgba(16, 185, 129, 0.7); }
+  .dot.same { background: var(--crimson); box-shadow: 0 0 8px rgba(244, 63, 94, 0.75); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 8px rgba(245, 158, 11, 0.7); }
+  .dot.cobalt { background: var(--cobalt-bright); box-shadow: 0 0 8px rgba(96, 165, 250, 0.7); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .score-readout {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .score-readout .ok { color: #34d399; font-weight: 600; }
+
+  .cmdk-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    color: var(--ink-2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cmdk-trigger:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(96, 165, 250, 0.5);
+    color: var(--ink);
+  }
+  .kbd {
     font-family: var(--font-mono);
     font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.14);
-    color: var(--text-primary);
+    color: var(--cobalt-bright);
+    letter-spacing: 0.04em;
   }
 
-  /* Split Main Workspace */
-  .workspace {
+  /* Thin 2px Spectrum Bar Directly Under Topbar */
+  .spectrum-bar {
+    height: 2px;
+    width: 100%;
+    display: flex;
+    background: rgba(148, 163, 184, 0.08);
+    flex-shrink: 0;
+  }
+  .spec-diff { background: var(--emerald); transition: width 0.35s ease; }
+  .spec-same { background: var(--crimson); transition: width 0.35s ease; }
+  .spec-rev { background: var(--amber); transition: width 0.35s ease; }
+
+  /* ── MAIN SPLIT SHELL ── */
+  .shell {
     display: grid;
-    grid-template-columns: 380px 1fr;
+    grid-template-columns: 300px 1fr;
     flex: 1;
     min-height: 0;
     overflow: hidden;
   }
 
-  /* Left Queue Pane */
-  .queue-pane {
+  /* ── LEFT TRIAGE RAIL (Hairline, No Boxy Cards) ── */
+  .rail {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border);
-    background: #0a0f1c;
+    border-right: 1px solid var(--hairline);
+    background: rgba(5, 9, 20, 0.55);
     min-height: 0;
   }
-  .queue-filters {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
+
+  .rail-controls {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--hairline);
     display: flex;
     flex-direction: column;
-    gap: 7px;
-    background: var(--bg-surface);
+    gap: 8px;
   }
-  .search-row {
-    display: flex;
-    gap: 6px;
+
+  .rail-search {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline-strong);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    padding: 4px 0 6px;
+    outline: none;
+    transition: border-color 0.15s;
   }
-  .search-row input { flex: 1; }
-  .filter-subrow {
+  .rail-search:focus { border-bottom-color: var(--cobalt-bright); }
+  .rail-search::placeholder { color: var(--ink-4); }
+
+  .rail-subfilters {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
   }
-  .filter-subrow select { flex: 1; padding: 4px 8px; font-size: 11px; }
-  .toggle-lbl {
+  .rail-subfilters select {
+    background: transparent;
+    border: none;
+    color: var(--ink-3);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    outline: none;
+    cursor: pointer;
+    max-width: 155px;
+  }
+  .rail-subfilters select:hover { color: var(--ink-2); }
+  .rail-subfilters select option { background: #0a1022; color: var(--ink); }
+
+  .check-inline {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--ink-3);
     cursor: pointer;
-    white-space: nowrap;
   }
-  .queue-meta {
-    padding: 5px 12px;
-    font-size: 11px;
-    color: var(--text-muted);
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: #090d18;
-  }
+  .check-inline:hover { color: var(--ink-2); }
 
-  .queue-list {
+  .rail-meta {
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+  }
+  .reset-link {
+    background: none;
+    border: none;
+    color: var(--cobalt-bright);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .reset-link:hover { text-decoration: underline; }
+
+  .rail-list {
     flex: 1;
     overflow-y: auto;
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
   }
+  .rail-list::-webkit-scrollbar { width: 4px; }
+  .rail-list::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.18); }
 
-  .queue-item {
-    padding: 9px 10px;
-    border-radius: 7px;
-    border: 1px solid transparent;
-    background: var(--bg-surface);
+  .rail-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+    border-left: 2px solid transparent;
     cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
     transition: background 0.12s, border-color 0.12s;
   }
-  .queue-item:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
-  .queue-item.selected {
-    background: #17233b;
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25) inset;
+  .rail-row:hover { background: rgba(59, 130, 246, 0.05); }
+  .rail-row.active {
+    background: rgba(59, 130, 246, 0.09);
+    border-left-color: var(--cobalt-bright);
   }
-  .qi-top {
+  .rr-top {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    margin-bottom: 3px;
   }
-  .qi-id {
+  .rr-id {
     font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: 12px;
-    color: var(--text-primary);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
   }
-  .qi-mid {
+  .rr-type {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .rr-names {
+    font-size: 12px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .rr-sub {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  /* ── RIGHT OPEN-CANVAS WORKSPACE ── */
+  .canvas {
+    position: relative;
+    overflow-y: auto;
+    min-height: 0;
+    scroll-behavior: smooth;
+  }
+  .canvas::-webkit-scrollbar { width: 6px; }
+  .canvas::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.18); }
+
+  .canvas-inner {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 28px 36px 72px;
+  }
+
+  /* Editorial Hero Section (No Box!) */
+  .hero {
+    position: relative;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .hero-ambient {
+    position: absolute;
+    top: -40px;
+    left: -36px;
+    right: -36px;
+    height: 180px;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.22;
+    transition: background 0.35s ease;
+  }
+  .hero-ambient.diff { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(16, 185, 129, 0.45), transparent 72%); }
+  .hero-ambient.same { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(244, 63, 94, 0.5), transparent 72%); }
+  .hero-ambient.rev { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(245, 158, 11, 0.45), transparent 72%); }
+
+  .hero-kicker-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    font-size: 11px;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
   }
-  .qi-names {
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ghost-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 0;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .ghost-btn:hover { color: var(--cobalt-bright); border-bottom-color: var(--cobalt-bright); }
+
+  .hero-headline {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 0 14px;
+    font-size: 27px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+  .hero-op {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 24px;
+    padding: 0 2px;
+  }
+  .hero-op.diff { color: var(--emerald); }
+  .hero-op.same { color: var(--crimson); }
+  .hero-op.rev { color: var(--amber); }
+  .hero-hit-name { color: var(--ink-2); font-weight: 400; }
+
+  .verdict-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .verdict-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--text-secondary);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .verdict-label.diff { color: #34d399; }
+  .verdict-label.same { color: #fb7185; }
+  .verdict-label.rev { color: #fbbf24; }
+
+  .code-tag {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--cobalt-bright);
+    padding: 1px 0;
+    border-bottom: 1px dashed rgba(96, 165, 250, 0.45);
+  }
+  .meta-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  .narrative-prose {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-2);
+    max-width: 880px;
+    margin: 0;
+  }
+  .ev-inline {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(96, 165, 250, 0.55);
+    color: #93c5fd;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 0 1px;
+    cursor: pointer;
+    transition: color 0.12s, background 0.12s;
+  }
+  .ev-inline:hover { color: #fff; background: rgba(59, 130, 246, 0.22); }
+
+  .evidence-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .ev-link {
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.26);
+    border-radius: 3px;
+    color: #93c5fd;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ev-link:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--cobalt-bright);
+    color: #fff;
+  }
+
+  /* ── HORIZONTAL POLICY PRECEDENCE PIPELINE ── */
+  .section-block {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .precedence-track {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .p-step {
+    padding: 10px 10px 11px;
+    border-right: 1px solid var(--hairline);
+    position: relative;
+    transition: background 0.15s;
+  }
+  .p-step:last-child { border-right: none; }
+  .p-step.fired { background: rgba(59, 130, 246, 0.08); }
+  .p-step.fired.diff { background: rgba(16, 185, 129, 0.08); }
+  .p-step.fired.same { background: rgba(244, 63, 94, 0.08); }
+  .p-step.fired.rev { background: rgba(245, 158, 11, 0.08); }
+  .p-step.fired::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--cobalt-bright);
+  }
+  .p-step.fired.diff::after { background: var(--emerald); }
+  .p-step.fired.same::after { background: var(--crimson); }
+  .p-step.fired.rev::after { background: var(--amber); }
+
+  .p-num {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-4);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .p-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .qi-names strong { color: var(--text-primary); font-weight: 500; }
-
-  /* Pills & Badges */
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    border: 1px solid transparent;
-    white-space: nowrap;
+  .p-step.fired .p-name { color: var(--ink); }
+  .p-state {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    margin-top: 3px;
+    color: var(--ink-4);
   }
-  .pill.diff { background: var(--emerald-bg); border-color: var(--emerald-border); color: #6ee7b7; }
-  .pill.same { background: var(--rose-bg); border-color: var(--rose-border); color: #fda4af; }
-  .pill.rev { background: var(--amber-bg); border-color: var(--amber-border); color: #fcd34d; }
-  .pill.indigo { background: var(--indigo-bg); border-color: var(--indigo-border); color: #c7d2fe; }
-  .pill.cyan { background: var(--cyan-bg); border-color: var(--cyan-border); color: #67e8f9; }
-  .pill.neutral { background: rgba(148, 163, 184, 0.12); border-color: var(--border-strong); color: var(--text-secondary); }
-  .pill.muted-strike {
-    background: rgba(100, 116, 139, 0.12);
-    border-color: var(--border);
-    color: var(--text-muted);
-    text-decoration: line-through;
-  }
-  .pill.lg { padding: 4px 11px; font-size: 12px; }
+  .p-step.fired.diff .p-state { color: #34d399; font-weight: 600; }
+  .p-step.fired.same .p-state { color: #fb7185; font-weight: 600; }
+  .p-step.fired.rev .p-state { color: #fbbf24; font-weight: 600; }
 
-  .mono { font-family: var(--font-mono); }
-
-  /* Right Inspector Pane */
-  .inspector-pane {
-    overflow-y: auto;
-    padding: 16px 20px 36px;
+  /* Ambiguous Multi-Candidate Selector Strip */
+  .cand-strip {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 0;
-  }
-
-  .card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-  }
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .card-title {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: var(--text-secondary);
-  }
-
-  .verdict-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-top: 14px;
   }
-  .verdict-badges {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .reason-box {
-    background: #0b1120;
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--cyan);
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--text-primary);
-  }
-  .evidence-bar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .ev-chip {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 5px;
-    background: var(--indigo-bg);
-    border: 1px solid var(--indigo-border);
-    color: #c7d2fe;
+  .cand-tab {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 3px;
+    padding: 8px 12px;
+    text-align: left;
     cursor: pointer;
+    color: var(--ink-2);
+    transition: all 0.15s;
   }
-  .ev-chip:hover { background: rgba(99, 102, 241, 0.28); }
-  .ev-chip.focused {
-    border-color: var(--cyan);
-    background: var(--cyan-bg);
-    color: #a5f3fc;
-    box-shadow: 0 0 0 1px var(--cyan);
+  .cand-tab:hover { border-color: var(--cobalt-bright); }
+  .cand-tab.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--cobalt-bright);
   }
 
-  /* Inline clickable IDs inside reason text */
-  .inline-id-btn {
-    display: inline;
-    padding: 0 4px;
-    margin: 0 1px;
-    border-radius: 4px;
-    background: rgba(99, 102, 241, 0.2);
-    border: 1px solid rgba(99, 102, 241, 0.45);
-    color: #c7d2fe;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    cursor: pointer;
-  }
-  .inline-id-btn:hover { background: rgba(6, 182, 212, 0.25); border-color: var(--cyan); color: #fff; }
-
-  /* SVG Graph */
-  .graph-wrap {
+  /* ── FULL-BLEED ANIMATED SVG PROVENANCE STREAM ── */
+  .stream-stage {
     width: 100%;
     overflow-x: auto;
-    background: radial-gradient(circle at top center, #111c33 0%, #090e1a 75%);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+    background-size: 22px 22px;
+    padding: 8px 0;
   }
-  .graph-svg {
+  .stream-svg {
     width: 100%;
-    min-width: 760px;
+    min-width: 780px;
     display: block;
   }
-  .g-node { cursor: pointer; transition: filter 0.12s; }
-  .g-node:hover { filter: brightness(1.18); }
+  .s-node { cursor: pointer; transition: opacity 0.15s; }
+  .s-node:hover rect { stroke-width: 2 !important; filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.45)); }
 
-  /* Comparison Matrix Table */
-  table {
+  /* ── OPEN-CANVAS HAIRLINE T-ACCOUNT LEDGER ── */
+  .ledger {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
   }
-  th, td {
+  .ledger th {
     text-align: left;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-  th {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-    background: #0b1120;
-  }
-  tr:last-child td { border-bottom: none; }
-
-  /* Multi-candidate cards */
-  .cand-row { cursor: pointer; }
-  .cand-row:hover td { background: rgba(148, 163, 184, 0.06); }
-  .cand-row.selected-cand td { background: rgba(6, 182, 212, 0.1); }
-
-  /* Tabs */
-  .tabs-nav {
-    display: flex;
-    gap: 6px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .tab-btn {
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    padding: 7px 12px;
-    color: var(--text-secondary);
-    font-size: 12px;
+    padding: 0 12px 10px 0;
+    border-bottom: 1px solid var(--hairline-strong);
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
   }
-  .tab-btn:hover { background: transparent; color: var(--text-primary); border-color: transparent; }
-  .tab-btn.active {
-    color: #67e8f9;
-    border-bottom-color: var(--cyan);
+  .ledger td {
+    padding: 13px 12px 13px 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+    font-size: 13px;
   }
-
-  .record-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 10px;
-  }
-  .record-card {
-    background: #0b1120;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .record-card.focused {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 1px var(--cyan);
-  }
-  .record-card.excluded {
-    opacity: 0.72;
-    border-style: dashed;
-  }
-  .kv-list {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 3px 10px;
-    font-size: 11px;
-  }
-  .kv-k { color: var(--text-muted); font-family: var(--font-mono); }
-  .kv-v { color: var(--text-primary); word-break: break-word; }
-
-  pre.json-pre {
-    margin: 0;
-    padding: 10px;
-    border-radius: 6px;
-    background: #070b14;
-    border: 1px solid var(--border);
-    color: #cbd5e1;
+  .ledger tr:last-child td { border-bottom: none; }
+  .ledger-dim {
+    width: 145px;
     font-family: var(--font-mono);
     font-size: 11px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .ledger-op {
+    width: 72px;
+    text-align: center !important;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .tier-tag {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--cobalt-bright);
+    margin-right: 6px;
+  }
+  .sub-line {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin-top: 3px;
+  }
+
+  /* ── SEARCH SHIELD & TRAIL EDITORIAL SECTIONS ── */
+  .shield-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 180px;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+    align-items: start;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .shield-row:hover { background: rgba(59, 130, 246, 0.04); }
+  .shield-row:last-child { border-bottom: none; }
+  .hl-phrase {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.18);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .hl-country {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.16);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .hl-date {
+    color: #fcd34d;
+    border-bottom: 1px dashed rgba(245, 158, 11, 0.6);
+  }
+
+  .trail-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+  }
+  .trail-cell {
+    background: #050915;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .trail-cell:hover { background: #0a1226; }
+  .trail-cell.excluded { opacity: 0.55; }
+
+  /* ── SLIDE-OVER FROSTED COBALT FORENSIC SHEET ── */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 4, 12, 0.45);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .forensic-sheet {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 460px;
+    max-width: 92vw;
+    z-index: 50;
+    background: var(--glass);
+    backdrop-filter: blur(22px);
+    border-left: 1px solid rgba(96, 165, 250, 0.24);
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .forensic-sheet.open { transform: translateX(0); }
+
+  .sheet-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 32px;
+  }
+  .sheet-kv {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 8px 12px;
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+  .sheet-k { font-family: var(--font-mono); color: var(--ink-3); font-size: 11px; }
+  .sheet-v { color: var(--ink); word-break: break-word; }
+
+  pre.code-block {
+    margin: 0;
+    padding: 12px;
+    background: rgba(2, 5, 14, 0.8);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
     overflow-x: auto;
-    max-height: 360px;
     white-space: pre-wrap;
     word-break: break-word;
   }
 
-  .note-highlight {
-    background: rgba(245, 158, 11, 0.16);
-    border-bottom: 1px dashed var(--amber);
-    padding: 0 2px;
-    border-radius: 2px;
+  /* ── ⌘K COMMAND PALETTE ── */
+  .cmdk-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(2, 4, 12, 0.65);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
   }
+  .cmdk-overlay.open { display: flex; }
+  .cmdk-box {
+    width: 560px;
+    max-width: 92vw;
+    background: rgba(8, 14, 30, 0.94);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 6px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
+    overflow: hidden;
+  }
+  .cmdk-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+  }
+  .cmdk-results {
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .cmdk-item {
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+  }
+  .cmdk-item:hover { background: rgba(59, 130, 246, 0.14); }
 
-  .loading-overlay {
+  .loading-state {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 40px;
-    color: var(--text-secondary);
-    font-size: 13px;
+    padding: 64px 20px;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
   }
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--border-strong);
-    border-top-color: var(--cyan);
+  .pulse-ring {
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
+    border: 2px solid var(--cobalt);
+    border-top-color: transparent;
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 980px) {
     html, body { height: auto; overflow: auto; }
-    .app-shell { height: auto; overflow: visible; }
-    .workspace { grid-template-columns: 1fr; overflow: visible; }
-    .queue-pane { max-height: 340px; border-right: none; border-bottom: 1px solid var(--border); }
-    .inspector-pane { overflow: visible; }
+    .app { height: auto; overflow: visible; }
+    .shell { grid-template-columns: 1fr; overflow: visible; }
+    .rail { max-height: 300px; border-right: none; border-bottom: 1px solid var(--hairline); }
+    .precedence-track { grid-template-columns: repeat(2, 1fr); }
+    .telemetry-strip { display: none; }
+    .canvas-inner { padding: 20px 18px 48px; }
   }
 </style>
 </head>
 <body>
-<div class="app-shell">
-  <!-- TOP BAR -->
+<div class="app">
+  <!-- ARCHITECTURAL TOP RIBBON -->
   <header class="topbar">
-    <div class="brand">
-      <div class="brand-logo">EL</div>
-      <div>
-        <div class="brand-title">EntityLens <span style="color:var(--text-muted);font-weight:400;">· Neuro-Symbolic Watchlist Screening</span></div>
-        <div class="brand-sub" id="datasetMetaSub">Connecting to local resolver...</div>
+    <div class="brand-group">
+      <div class="brand-mark">
+        <span class="brand-dot"></span>
+        <span>EntityLens</span>
       </div>
+      <span class="sep-v"></span>
+      <select id="datasetSelect" class="minimal-select" aria-label="Dataset"></select>
     </div>
-    <div class="topbar-controls">
-      <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
-        Dataset:
-        <select id="datasetSelect" aria-label="Select dataset"></select>
-      </label>
-      <div id="scoreBadge" class="score-badge" style="display:none;"></div>
-      <div class="cost-pill" title="Policy decision-theoretic calibration">
-        Clearance <strong>60:3</strong> · Confirm <strong>2:2</strong>
-      </div>
+
+    <div class="telemetry-strip" id="telemetryStrip"></div>
+
+    <div class="topbar-right">
+      <div class="score-readout" id="scoreReadout"></div>
+      <button class="cmdk-trigger" id="openCmdkBtn" title="Open Command Palette (⌘K)">
+        <span>Jump</span>
+        <span class="kbd">⌘K</span>
+      </button>
     </div>
   </header>
 
-  <!-- ANALYTICS STRIP -->
-  <section class="analytics-strip">
-    <div class="kpi-row" id="kpiRow"></div>
-    <div class="reason-chips" id="reasonChips"></div>
-  </section>
+  <!-- 2PX CONTINUOUS SPECTRUM LINE -->
+  <div class="spectrum-bar" id="spectrumBar">
+    <div class="spec-diff" id="specDiff" style="width:0%"></div>
+    <div class="spec-same" id="specSame" style="width:0%"></div>
+    <div class="spec-rev" id="specRev" style="width:0%"></div>
+  </div>
 
-  <!-- MAIN WORKSPACE -->
-  <main class="workspace">
-    <!-- LEFT QUEUE -->
-    <aside class="queue-pane">
-      <div class="queue-filters">
-        <div class="search-row">
-          <input id="searchInput" type="text" placeholder="Search hit, alert, CUS-, name, reason… (/)" />
-          <button id="resetFiltersBtn" title="Clear active filters" style="display:none;">Reset</button>
-        </div>
-        <div class="filter-subrow">
-          <select id="resStatusFilter" aria-label="Filter by customer resolution status">
-            <option value="ALL">Resolution: All</option>
+  <!-- SPLIT WORKSPACE -->
+  <div class="shell">
+    <!-- WHISPER-QUIET LEFT TRIAGE RAIL -->
+    <aside class="rail">
+      <div class="rail-controls">
+        <input id="searchInput" class="rail-search" type="text" placeholder="Filter hits, names, CUS-, reasons…  (/)" />
+        <div class="rail-subfilters">
+          <select id="reasonFilter" aria-label="Reason Code Filter">
+            <option value="ALL">All reason codes</option>
+          </select>
+          <select id="resStatusFilter" aria-label="Resolution Status">
+            <option value="ALL">All links</option>
             <option value="LINKED">LINKED</option>
-            <option value="INFERRED_UNIQUE">INFERRED_UNIQUE</option>
+            <option value="INFERRED_UNIQUE">INFERRED</option>
             <option value="AMBIGUOUS">AMBIGUOUS</option>
             <option value="UNRESOLVED">UNRESOLVED</option>
           </select>
-          <label class="toggle-lbl">
-            <input type="checkbox" id="labeledOnlyChk" />
-            Labeled only
+          <label class="check-inline" title="Show labeled hits only">
+            <input type="checkbox" id="labeledOnlyChk" /> Labeled
           </label>
         </div>
       </div>
-      <div class="queue-meta">
-        <span id="queueCountText">Loading…</span>
-        <span>↑ / ↓ navigate</span>
+      <div class="rail-meta">
+        <span id="railCount">LOADING…</span>
+        <button id="resetBtn" class="reset-link" style="display:none;">RESET</button>
       </div>
-      <div class="queue-list" id="queueList"></div>
+      <div class="rail-list" id="railList"></div>
     </aside>
 
-    <!-- RIGHT INSPECTOR -->
-    <section class="inspector-pane" id="inspectorPane">
-      <div class="loading-overlay"><div class="spinner"></div> Loading screening results…</div>
-    </section>
-  </main>
+    <!-- OPEN-CANVAS EDITORIAL INSPECTOR -->
+    <main class="canvas" id="canvas">
+      <div class="loading-state"><span class="pulse-ring"></span> Initializing Cobalt XAI Studio…</div>
+    </main>
+  </div>
+</div>
+
+<!-- FROSTED COBALT SLIDE-OVER FORENSIC SHEET -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<aside class="forensic-sheet" id="forensicSheet" aria-label="Forensic Source Inspector">
+  <div class="sheet-head">
+    <div>
+      <div class="kicker" id="sheetKicker">FORENSIC RECORD</div>
+      <div class="mono" style="font-size:14px;font-weight:600;margin-top:2px;" id="sheetTitle">—</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="ghost-btn" id="sheetCopyBtn">COPY JSON</button>
+      <button class="ghost-btn" id="sheetCloseBtn">ESC ×</button>
+    </div>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</aside>
+
+<!-- ⌘K COMMAND PALETTE -->
+<div class="cmdk-overlay" id="cmdkOverlay" role="dialog" aria-modal="true" aria-label="Command Palette">
+  <div class="cmdk-box">
+    <input id="cmdkInput" class="cmdk-input" type="text" placeholder="Type a hit ID, customer name, dataset, or filter (e.g. AMBIGUOUS, H-100019)…" />
+    <div class="cmdk-results" id="cmdkResults"></div>
+  </div>
 </div>
 
 <script>
@@ -739,127 +997,91 @@
     filteredHits: [],
     selectedHitId: null,
     selectedCandidateIdx: 0,
-    focusedRecordId: null,
-    activeTab: "evidence",
     detailCache: new Map(),
-    filters: {
-      decision: "ALL",
-      reasonCode: "ALL",
-      resStatus: "ALL",
-      labeledOnly: false,
-      search: "",
-    },
+    sheetPayload: null,
+    filters: { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" },
   };
 
   const els = {
     datasetSelect: document.getElementById("datasetSelect"),
-    datasetMetaSub: document.getElementById("datasetMetaSub"),
-    scoreBadge: document.getElementById("scoreBadge"),
-    kpiRow: document.getElementById("kpiRow"),
-    reasonChips: document.getElementById("reasonChips"),
+    telemetryStrip: document.getElementById("telemetryStrip"),
+    scoreReadout: document.getElementById("scoreReadout"),
+    specDiff: document.getElementById("specDiff"),
+    specSame: document.getElementById("specSame"),
+    specRev: document.getElementById("specRev"),
     searchInput: document.getElementById("searchInput"),
+    reasonFilter: document.getElementById("reasonFilter"),
     resStatusFilter: document.getElementById("resStatusFilter"),
     labeledOnlyChk: document.getElementById("labeledOnlyChk"),
-    resetFiltersBtn: document.getElementById("resetFiltersBtn"),
-    queueCountText: document.getElementById("queueCountText"),
-    queueList: document.getElementById("queueList"),
-    inspectorPane: document.getElementById("inspectorPane"),
+    railCount: document.getElementById("railCount"),
+    resetBtn: document.getElementById("resetBtn"),
+    railList: document.getElementById("railList"),
+    canvas: document.getElementById("canvas"),
+    sheetBackdrop: document.getElementById("sheetBackdrop"),
+    forensicSheet: document.getElementById("forensicSheet"),
+    sheetKicker: document.getElementById("sheetKicker"),
+    sheetTitle: document.getElementById("sheetTitle"),
+    sheetBody: document.getElementById("sheetBody"),
+    sheetCopyBtn: document.getElementById("sheetCopyBtn"),
+    sheetCloseBtn: document.getElementById("sheetCloseBtn"),
+    openCmdkBtn: document.getElementById("openCmdkBtn"),
+    cmdkOverlay: document.getElementById("cmdkOverlay"),
+    cmdkInput: document.getElementById("cmdkInput"),
+    cmdkResults: document.getElementById("cmdkResults"),
   };
 
-  function esc(val) {
-    if (val === null || val === undefined) return "";
-    return String(val)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
+  const esc = v => v === null || v === undefined ? "" : String(v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-  function decClass(decision) {
-    if (decision === "DIFFERENT_ENTITY") return "diff";
-    if (decision === "SAME_ENTITY") return "same";
-    return "rev";
-  }
-
-  function decShort(decision) {
-    if (decision === "DIFFERENT_ENTITY") return "DIFFERENT";
-    if (decision === "SAME_ENTITY") return "SAME";
-    return "REVIEW";
-  }
+  const decCls = d => d === "DIFFERENT_ENTITY" ? "diff" : (d === "SAME_ENTITY" ? "same" : "rev");
+  const decOp = d => d === "DIFFERENT_ENTITY" ? "≠" : (d === "SAME_ENTITY" ? "≡" : "?");
 
   async function init() {
     try {
       const resp = await fetch("/api/datasets");
       const data = await resp.json();
       state.datasets = data.datasets || [];
-      renderDatasetSelect();
+      els.datasetSelect.innerHTML = state.datasets
+        .map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
 
       const params = new URLSearchParams(window.location.search);
-      const reqDataset = params.get("dataset");
+      const reqDs = params.get("dataset");
       const reqHit = params.get("hit");
-      const initialId = state.datasets.some(d => d.id === reqDataset)
-        ? reqDataset
-        : (state.datasets[0] && state.datasets[0].id);
-
-      if (initialId) {
-        els.datasetSelect.value = initialId;
-        await loadDataset(initialId, reqHit);
+      const firstId = state.datasets.some(d => d.id === reqDs) ? reqDs : (state.datasets[0] && state.datasets[0].id);
+      if (firstId) {
+        els.datasetSelect.value = firstId;
+        await loadDataset(firstId, reqHit);
       }
     } catch (err) {
-      els.inspectorPane.innerHTML = `<div class="card" style="border-color:var(--rose);">Failed to reach visualizer server: ${esc(err.message)}</div>`;
+      els.canvas.innerHTML = `<div class="loading-state" style="color:#fb7185;">Connection error: ${esc(err.message)}</div>`;
     }
-  }
-
-  function renderDatasetSelect() {
-    els.datasetSelect.innerHTML = state.datasets
-      .map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`)
-      .join("");
   }
 
   async function loadDataset(datasetId, preferHitId = null) {
     state.currentDataset = datasetId;
     state.selectedCandidateIdx = 0;
-    state.focusedRecordId = null;
-    els.datasetMetaSub.textContent = `Loading "${datasetId}" dataset & resolving hits…`;
-    els.queueList.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Loading…</div>`;
-    els.inspectorPane.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Resolving dataset "${esc(datasetId)}"…</div>`;
+    closeSheet();
+    els.railList.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving…</div>`;
+    els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving "${esc(datasetId)}" dataset…</div>`;
 
     const resp = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/summary`);
-    const summary = await resp.json();
-    state.summary = summary;
+    state.summary = await resp.json();
 
-    // Reset filters on dataset change
     state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
     els.searchInput.value = "";
     els.resStatusFilter.value = "ALL";
     els.labeledOnlyChk.checked = false;
 
-    const totals = summary.totals || {};
-    els.datasetMetaSub.textContent = `${totals.hits} hits · ${totals.alerts} alerts · ${totals.customers.toLocaleString()} CRM records · resolved offline in ${summary.load_time_ms} ms`;
+    const rcs = Object.entries(state.summary.reason_counts || {});
+    els.reasonFilter.innerHTML = `<option value="ALL">All reason codes</option>` +
+      rcs.map(([c, n]) => `<option value="${esc(c)}">${esc(c)} (${n})</option>`).join("");
 
-    renderScoreBadge(summary.label_stats);
-    renderAnalytics();
+    renderTopTelemetry();
     applyFilters(preferHitId);
   }
 
-  function renderScoreBadge(stats) {
-    if (!stats) {
-      els.scoreBadge.style.display = "none";
-      return;
-    }
-    els.scoreBadge.style.display = "inline-flex";
-    const isPerfect = stats.unsafe_clearances === 0 && stats.decision_score >= 99.9;
-    els.scoreBadge.className = "score-badge" + (isPerfect ? "" : " warn");
-    els.scoreBadge.innerHTML = `
-      <span>Labels: <strong>${stats.right_decisions}/${stats.total}</strong></span>
-      <span>· Score <strong>${stats.decision_score.toFixed(1)}</strong></span>
-      <span>· <strong>${stats.unsafe_clearances}</strong> Unsafe</span>
-      <span style="opacity:0.85;">· Codes ${stats.reason_code_pct}% · CID ${stats.customer_id_pct}%</span>
-    `;
-  }
-
-  function renderAnalytics() {
+  function renderTopTelemetry() {
     const sum = state.summary;
     const total = (sum.totals && sum.totals.hits) || 0;
     const dc = sum.decision_counts || {};
@@ -868,157 +1090,126 @@
     const rev = dc.REVIEW || 0;
     const pct = n => total ? ((100 * n) / total).toFixed(1) + "%" : "0%";
 
-    const cards = [
-      { id: "ALL", cls: "", dot: "var(--cyan)", lbl: "All Hits", val: total, p: "100%" },
-      { id: "DIFFERENT_ENTITY", cls: "diff", dot: "var(--emerald)", lbl: "Different Entity", val: diff, p: pct(diff) },
-      { id: "SAME_ENTITY", cls: "same", dot: "var(--rose)", lbl: "Same Entity", val: same, p: pct(same) },
-      { id: "REVIEW", cls: "rev", dot: "var(--amber)", lbl: "Review", val: rev, p: pct(rev) },
+    els.specDiff.style.width = pct(diff);
+    els.specSame.style.width = pct(same);
+    els.specRev.style.width = pct(rev);
+
+    const items = [
+      { id: "ALL", cls: "", dot: "cobalt", lbl: "ALL", val: total },
+      { id: "DIFFERENT_ENTITY", cls: "diff", dot: "diff", lbl: "CLEARED", val: diff },
+      { id: "SAME_ENTITY", cls: "same", dot: "same", lbl: "MATCHED", val: same },
+      { id: "REVIEW", cls: "rev", dot: "rev", lbl: "REVIEW", val: rev },
     ];
+    els.telemetryStrip.innerHTML = items.map(it => `
+      <button class="t-metric ${it.cls} ${state.filters.decision === it.id ? "active" : ""}" data-dec="${it.id}">
+        <span class="dot ${it.dot}"></span>
+        <span>${it.lbl}</span>
+        <strong>${it.val}</strong>
+      </button>
+    `).join("");
 
-    els.kpiRow.innerHTML = cards.map(c => `
-      <div class="kpi-card ${c.cls} ${state.filters.decision === c.id ? "active" : ""}" data-dec="${c.id}">
-        <span class="kpi-dot" style="background:${c.dot};"></span>
-        <div>
-          <div class="kpi-val">${c.val}</div>
-          <div class="kpi-lbl">${c.lbl}</div>
-        </div>
-        <div class="kpi-pct">${c.p}</div>
-      </div>
-    `).join("") + `
-      <div class="stacked-bar-wrap">
-        <div class="stacked-bar">
-          <div class="sb-diff" style="width:${pct(diff)};" title="DIFFERENT_ENTITY: ${diff}"></div>
-          <div class="sb-same" style="width:${pct(same)};" title="SAME_ENTITY: ${same}"></div>
-          <div class="sb-rev" style="width:${pct(rev)};" title="REVIEW: ${rev}"></div>
-        </div>
-        <div class="stacked-legend">
-          <span>Clearance ${pct(diff)}</span>
-          <span>Confirmed ${pct(same)}</span>
-          <span>Review ${pct(rev)}</span>
-        </div>
-      </div>
-    `;
-
-    els.kpiRow.querySelectorAll(".kpi-card").forEach(card => {
-      card.addEventListener("click", () => {
-        const d = card.getAttribute("data-dec");
+    els.telemetryStrip.querySelectorAll(".t-metric").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const d = btn.getAttribute("data-dec");
         state.filters.decision = (state.filters.decision === d && d !== "ALL") ? "ALL" : d;
-        renderAnalytics();
+        renderTopTelemetry();
         applyFilters();
       });
     });
 
-    const rcEntries = Object.entries(sum.reason_counts || {});
-    els.reasonChips.innerHTML = `<span style="font-size:11px;color:var(--text-muted);margin-right:2px;">Reason Codes:</span>` +
-      rcEntries.map(([code, cnt]) => `
-        <span class="reason-chip ${state.filters.reasonCode === code ? "active" : ""}" data-rc="${esc(code)}">
-          <span>${esc(code)}</span>
-          <span class="rc-cnt">${cnt}</span>
-        </span>
-      `).join("");
-
-    els.reasonChips.querySelectorAll(".reason-chip").forEach(chip => {
-      chip.addEventListener("click", () => {
-        const rc = chip.getAttribute("data-rc");
-        state.filters.reasonCode = state.filters.reasonCode === rc ? "ALL" : rc;
-        renderAnalytics();
-        applyFilters();
-      });
-    });
+    const st = sum.label_stats;
+    const llm = sum.llm_info || {};
+    const llmTag = llm.enabled
+      ? `<span style="color:var(--cobalt-bright);" title="LLM calls: ${(llm.stats && llm.stats.requests_total) || 0}">${esc(llm.backend)} · ${esc(llm.model)}</span>`
+      : `<span style="color:var(--ink-3);">OFFLINE</span>`;
+    if (st) {
+      els.scoreReadout.innerHTML = `
+        ${llmTag}
+        <span style="color:var(--ink-4);">·</span>
+        <span>SCORE <span class="ok">${st.decision_score.toFixed(1)}</span></span>
+        <span style="color:var(--ink-4);">·</span>
+        <span>${st.right_decisions}/${st.total}</span>
+        <span style="color:var(--ink-4);">·</span>
+        <span>UNSAFE <span class="ok">${st.unsafe_clearances}</span></span>
+      `;
+    } else {
+      els.scoreReadout.innerHTML = `${llmTag} <span style="color:var(--ink-4);">·</span> <span>${sum.load_time_ms}ms</span>`;
+    }
   }
 
   function applyFilters(preferHitId = null) {
     if (!state.summary) return;
     const f = state.filters;
     const q = f.search.trim().toLowerCase();
-
-    const filtered = state.summary.hits.filter(h => {
+    const list = state.summary.hits.filter(h => {
       if (f.decision !== "ALL" && h.decision !== f.decision) return false;
       if (f.reasonCode !== "ALL" && h.reason_code !== f.reasonCode) return false;
       if (f.resStatus !== "ALL" && h.resolution_status !== f.resStatus) return false;
       if (f.labeledOnly && !h.has_label) return false;
       if (q) {
-        const hay = [
-          h.hit_id, h.alert_id, h.customer_record_id || "null",
-          h.customer_name, h.hit_name, h.reason_code, h.reason
-        ].join(" ").toLowerCase();
+        const hay = [h.hit_id, h.alert_id, h.customer_record_id || "null", h.customer_name, h.hit_name, h.reason_code, h.reason].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
 
-    state.filteredHits = filtered;
-    const anyFilter = f.decision !== "ALL" || f.reasonCode !== "ALL" || f.resStatus !== "ALL" || f.labeledOnly || q.length > 0;
-    els.resetFiltersBtn.style.display = anyFilter ? "inline-block" : "none";
-    els.queueCountText.textContent = `Showing ${filtered.length} of ${state.summary.hits.length} hits`;
+    state.filteredHits = list;
+    const dirty = f.decision !== "ALL" || f.reasonCode !== "ALL" || f.resStatus !== "ALL" || f.labeledOnly || q.length > 0;
+    els.resetBtn.style.display = dirty ? "inline" : "none";
+    els.railCount.textContent = `${list.length} / ${state.summary.hits.length} HITS · J/K`;
 
-    renderQueue();
+    renderRail();
 
-    if (preferHitId && filtered.some(h => h.hit_id === preferHitId)) {
-      selectHit(preferHitId);
-    } else if (filtered.some(h => h.hit_id === state.selectedHitId)) {
-      selectHit(state.selectedHitId, false);
-    } else if (filtered.length > 0) {
-      selectHit(filtered[0].hit_id);
-    } else {
+    if (preferHitId && list.some(h => h.hit_id === preferHitId)) selectHit(preferHitId);
+    else if (list.some(h => h.hit_id === state.selectedHitId)) selectHit(state.selectedHitId, false);
+    else if (list.length > 0) selectHit(list[0].hit_id);
+    else {
       state.selectedHitId = null;
-      els.inspectorPane.innerHTML = `<div class="card" style="color:var(--text-secondary);">No hits match the current filters.</div>`;
+      els.canvas.innerHTML = `<div class="loading-state">No hits match active filters.</div>`;
     }
   }
 
-  function renderQueue() {
+  function renderRail() {
     if (!state.filteredHits.length) {
-      els.queueList.innerHTML = `<div style="padding:20px;color:var(--text-muted);text-align:center;">No matching hits</div>`;
+      els.railList.innerHTML = `<div class="loading-state" style="padding:24px;">Empty queue</div>`;
       return;
     }
-
-    const html = state.filteredHits.map(h => {
-      const sel = h.hit_id === state.selectedHitId ? "selected" : "";
-      const dc = decClass(h.decision);
-      let lblBadge = "";
-      if (h.label_match === "MATCH") lblBadge = `<span class="pill diff" title="Matches label & reason code">✓</span>`;
-      else if (h.label_match === "DECISION_ONLY") lblBadge = `<span class="pill rev" title="Decision matches label">~</span>`;
-      else if (h.label_match === "MISMATCH") lblBadge = `<span class="pill same" title="Decision mismatch vs label">✗</span>`;
-
-      const cidDisplay = h.customer_record_id === null ? "null" : h.customer_record_id;
+    els.railList.innerHTML = state.filteredHits.map(h => {
+      const cls = decCls(h.decision);
+      const act = h.hit_id === state.selectedHitId ? "active" : "";
+      const tick = h.label_match === "MATCH" ? `<span style="color:#34d399;font-size:10px;">✓</span>` : "";
       return `
-        <div class="queue-item ${sel}" data-hid="${esc(h.hit_id)}">
-          <div class="qi-top">
-            <span class="qi-id">${esc(h.hit_id)}</span>
-            <span class="pill ${dc}">${decShort(h.decision)}</span>
-            ${lblBadge}
-            <span class="pill neutral" style="margin-left:auto;">${esc(h.entity_type)}</span>
+        <div class="rail-row ${act}" data-hid="${esc(h.hit_id)}">
+          <div class="rr-top">
+            <span class="dot ${cls}"></span>
+            <span class="rr-id">${esc(h.hit_id)}</span>
+            ${tick}
+            <span class="rr-type">${esc(h.entity_type === "Company" ? "CO" : "IND")}</span>
           </div>
-          <div class="qi-mid">
-            <span class="mono" style="color:#c7d2fe;">${esc(h.reason_code)}</span>
-            <span class="mono" style="color:var(--text-muted);">${esc(cidDisplay)}</span>
-          </div>
-          <div class="qi-names" title="${esc(h.customer_name)} ↔ ${esc(h.hit_name)}">
-            <strong>${esc(h.customer_name)}</strong> <span style="color:var(--text-muted);">↔</span> ${esc(h.hit_name)}
+          <div class="rr-names">${esc(h.customer_name)} <span style="color:var(--ink-4);">${decOp(h.decision)}</span> ${esc(h.hit_name)}</div>
+          <div class="rr-sub">
+            <span>${esc(h.reason_code)}</span>
+            <span>${esc(h.customer_record_id === null ? "null" : h.customer_record_id)}</span>
           </div>
         </div>
       `;
     }).join("");
 
-    els.queueList.innerHTML = html;
-    els.queueList.querySelectorAll(".queue-item").forEach(el => {
-      el.addEventListener("click", () => selectHit(el.getAttribute("data-hid")));
+    els.railList.querySelectorAll(".rail-row").forEach(row => {
+      row.addEventListener("click", () => selectHit(row.getAttribute("data-hid")));
     });
   }
 
-  async function selectHit(hitId, reloadIfCached = true) {
+  async function selectHit(hitId, showLoader = true) {
     state.selectedHitId = hitId;
     state.selectedCandidateIdx = 0;
-    state.focusedRecordId = null;
 
-    // Update queue visual selection without re-rendering whole list
-    els.queueList.querySelectorAll(".queue-item").forEach(el => {
-      el.classList.toggle("selected", el.getAttribute("data-hid") === hitId);
+    els.railList.querySelectorAll(".rail-row").forEach(r => {
+      r.classList.toggle("active", r.getAttribute("data-hid") === hitId);
     });
-    const selEl = els.queueList.querySelector(".queue-item.selected");
-    if (selEl) selEl.scrollIntoView({ block: "nearest" });
+    const activeRow = els.railList.querySelector(".rail-row.active");
+    if (activeRow) activeRow.scrollIntoView({ block: "nearest" });
 
-    // Sync query params unobtrusively
     const url = new URL(window.location.href);
     url.searchParams.set("dataset", state.currentDataset);
     url.searchParams.set("hit", hitId);
@@ -1027,805 +1218,673 @@
     const cacheKey = `${state.currentDataset}:${hitId}`;
     let detail = state.detailCache.get(cacheKey);
     if (!detail) {
-      if (reloadIfCached) {
-        els.inspectorPane.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Inspecting ${esc(hitId)}…</div>`;
-      }
+      if (showLoader) els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving ${esc(hitId)}…</div>`;
       const resp = await fetch(`/api/datasets/${encodeURIComponent(state.currentDataset)}/hit/${encodeURIComponent(hitId)}`);
       detail = await resp.json();
       state.detailCache.set(cacheKey, detail);
     }
-    renderInspector(detail);
+    renderCanvas(detail);
   }
 
-  function linkifyReasonText(text, recordsById) {
-    // Replace known ID tokens inside reason text with clickable buttons
-    const pattern = /\b((?:CUS|KYC|NOTE|SR|ACC|APP|H|A)-[0-9A-Za-z]+)\b/g;
-    let out = "";
-    let last = 0;
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-      out += esc(text.slice(last, match.index));
-      const id = match[1];
-      if (recordsById && recordsById[id]) {
-        out += `<button class="inline-id-btn" data-focus-id="${esc(id)}" title="Inspect ${esc(id)}">${esc(id)}</button>`;
-      } else {
-        out += esc(id);
-      }
-      last = match.index + id.length;
+  function linkifyReason(text, recordsById) {
+    const re = /\b((?:CUS|KYC|NOTE|SR|ACC|APP|H|A)-[0-9A-Za-z]+)\b/g;
+    let out = "", last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      const id = m[1];
+      out += (recordsById && recordsById[id])
+        ? `<button class="ev-inline" data-inspect="${esc(id)}">${esc(id)}</button>`
+        : esc(id);
+      last = m.index + id.length;
     }
-    out += esc(text.slice(last));
-    return out;
+    return out + esc(text.slice(last));
   }
 
-  function renderInspector(detail) {
+  function renderPrecedenceTrack(detail, cand) {
+    const out = detail.output;
+    const ev = (cand && cand.evaluation) || {};
+    const applicable = new Set(ev.all_applicable_codes || []);
+    const firedCode = out.reason_code;
+    const dCls = decCls(out.decision);
+
+    const steps = [
+      { n: "01", key: "ENTITY_TYPE_MISMATCH", label: "TYPE" },
+      { n: "02", key: "DECEASED", label: "DECEASED" },
+      { n: "03", key: "TEMPORAL_IMPOSSIBILITY", label: "TEMPORAL" },
+      { n: "04", key: "DOB_MISMATCH", label: "DOB CHECK" },
+      { n: "05", key: "NAME_MISMATCH_VERIFIED", label: "VERIFIED NAME" },
+      { n: "06", key: "LOCATION_MISMATCH", label: "GEOGRAPHY" },
+      { n: "07", key: "FINAL", label: out.decision === "SAME_ENTITY" ? "CONFIRM" : "REVIEW" },
+    ];
+
+    let foundFired = false;
+    return `<div class="precedence-track">${steps.map(st => {
+      const isFinalMatch = st.key === "FINAL" && (out.decision === "SAME_ENTITY" || out.decision === "REVIEW");
+      const isFired = st.key === firedCode || isFinalMatch;
+      let stateTxt = "PASS";
+      if (isFired) {
+        foundFired = true;
+        stateTxt = out.decision === "REVIEW" ? "HELD" : "FIRED";
+      } else if (foundFired) {
+        stateTxt = applicable.has(st.key) ? "ALSO TRUE" : "SKIPPED";
+      }
+      return `
+        <div class="p-step ${isFired ? `fired ${dCls}` : ""}">
+          <div class="p-num"><span>${st.n}</span><span>${isFired ? "●" : "○"}</span></div>
+          <div class="p-name">${esc(st.label)}</div>
+          <div class="p-state">${stateTxt}</div>
+        </div>
+      `;
+    }).join("")}</div>`;
+  }
+
+  function renderProvenanceStreamSVG(detail, cand) {
+    const out = detail.output;
+    const alert = detail.alert;
+    const hitProf = detail.hit_profile;
+    const trail = (cand && cand.raw_trail) || {};
+    const searchRows = (detail.search_shield_trace && detail.search_shield_trace.candidates) || [];
+    const evSet = new Set(out.evidence || []);
+    const verdictColor = out.decision === "DIFFERENT_ENTITY" ? "#10b981" : (out.decision === "SAME_ENTITY" ? "#f43f5e" : "#f59e0b");
+
+    // Build Left Nodes (Customer Stream)
+    const left = [];
+    left.push({
+      id: cand && !cand.is_unresolved ? (cand.canonical_record_id || cand.record_ids[0]) : alert.alert_id,
+      kicker: detail.resolved_alert.resolution_status,
+      title: cand && !cand.is_unresolved ? (cand.canonical_record_id || "Cluster") : "Unresolved",
+      sub: cand ? `${cand.effective_name || "?"}${cand.record_ids.length > 1 ? ` (+${cand.record_ids.length - 1} merged)` : ""}` : "No CRM fit",
+      color: "#60a5fa",
+      active: true,
+      dashed: Boolean(cand && cand.is_unresolved),
+    });
+
+    (trail.kyc_checks || []).slice(0, 2).forEach(k => {
+      const ok = k._tier_status === "TIER_1_APPROVED";
+      left.push({
+        id: k.check_id,
+        kicker: ok ? "TIER 1 VERIFIED" : "TIER 0 EXCLUDED",
+        title: k.check_id,
+        sub: ok ? (k.verified_dob || k.verified_name || k.document_country || "Approved") : `${k.result || "Excluded"} (ignored)`,
+        color: ok ? "#10b981" : "#475569",
+        active: ok && evSet.has(k.check_id),
+        dashed: !ok,
+      });
+    });
+
+    (trail.notes || []).slice(0, 2).forEach(n => {
+      const excl = n._tier_status === "TIER_0_EXCLUDED";
+      left.push({
+        id: n.note_id,
+        kicker: excl ? "TIER 0 EXCLUDED" : `NOTE · ${(n.channel || "text").toUpperCase()}`,
+        title: n.note_id,
+        sub: (n.text || "").slice(0, 32) + ((n.text || "").length > 32 ? "…" : ""),
+        color: excl ? "#475569" : "#22d3ee",
+        active: !excl && evSet.has(n.note_id),
+        dashed: excl,
+      });
+    });
+
+    if ((trail.quarantined_customers || []).length > 0) {
+      const q = trail.quarantined_customers[0];
+      left.push({
+        id: q.record_id,
+        kicker: "QUARANTINED · DIFF DOB",
+        title: q.record_id,
+        sub: `${q.full_name || "Family"} (${q.dob || "?"})`,
+        color: "#f59e0b",
+        active: false,
+        dashed: true,
+      });
+    }
+
+    // Build Right Nodes (Watchlist & Anti-Namesake Shield)
+    const right = [];
+    right.push({
+      id: hitProf.hit_id,
+      kicker: `WATCHLIST · ${hitProf.entity_type.toUpperCase()}`,
+      title: hitProf.hit_id,
+      sub: `${hitProf.primary_name} · ${hitProf.countries.map(c => c.iso).join(",") || "No Geo"}`,
+      color: "#818cf8",
+      active: true,
+      dashed: false,
+    });
+
+    const sortedSr = [...searchRows].sort((a, b) => {
+      const rank = s => s === "USED_FOR_DOB" ? 0 : (s === "ANCHORED_NO_DOB" ? 1 : (s === "BLOCKED" ? 2 : 3));
+      return rank(a.status) - rank(b.status);
+    });
+    const anchoredSr = sortedSr.filter(r => r.status === "USED_FOR_DOB" || r.status === "ANCHORED_NO_DOB");
+    const blockedSr = sortedSr.filter(r => r.status === "BLOCKED");
+
+    anchoredSr.slice(0, 2).forEach(r => {
+      right.push({
+        id: r.result_id,
+        kicker: "SHIELD · ANCHORED",
+        title: r.result_id,
+        sub: (hitProf.dob_detail || r.title || "").slice(0, 32),
+        color: "#10b981",
+        active: true,
+        dashed: false,
+      });
+    });
+
+    if (blockedSr.length > 0) {
+      const br = blockedSr[0].block_reason || "Namesake rejected";
+      right.push({
+        id: blockedSr[0].result_id,
+        kicker: `SHIELD · ${blockedSr.length} DECOY${blockedSr.length > 1 ? "S" : ""} BLOCKED`,
+        title: blockedSr.length === 1 ? blockedSr[0].result_id : `${blockedSr[0].result_id} +${blockedSr.length - 1}`,
+        sub: br.length > 32 ? br.slice(0, 32) + "…" : br,
+        color: "#f43f5e",
+        active: false,
+        dashed: true,
+      });
+    } else if (hitProf.earliest_report_date || hitProf.deceased_date) {
+      right.push({
+        id: hitProf.hit_id,
+        kicker: hitProf.deceased_date ? "DECEASED DATE" : "DATED REPORT",
+        title: hitProf.deceased_date || hitProf.earliest_report_date,
+        sub: hitProf.deceased_date ? `Died before ${detail.screened_at}` : "Earliest 'According to' report",
+        color: "#f43f5e",
+        active: evSet.has(hitProf.hit_id) || out.reason_code === "TEMPORAL_IMPOSSIBILITY",
+        dashed: false,
+      });
+    }
+
+    const nodeH = 54, gap = 14, pad = 16;
+    const maxRows = Math.max(left.length, right.length, 2);
+    const svgH = Math.max(190, pad * 2 + maxRows * nodeH + (maxRows - 1) * gap);
+    const midY = svgH / 2;
+
+    const leftYs = left.map((_, i) => (svgH - (left.length * nodeH + (left.length - 1) * gap)) / 2 + i * (nodeH + gap));
+    const rightYs = right.map((_, i) => (svgH - (right.length * nodeH + (right.length - 1) * gap)) / 2 + i * (nodeH + gap));
+
+    let paths = "";
+    let pulses = "";
+
+    left.forEach((n, i) => {
+      const y = leftYs[i] + nodeH / 2;
+      const d = `M 284 ${y} C 350 ${y}, 355 ${midY}, 405 ${midY}`;
+      const col = n.active ? verdictColor : (n.dashed ? n.color : "#334155");
+      paths += `<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${n.active ? 0.85 : 0.28}" stroke-width="${n.active ? 1.8 : 1}" ${n.dashed ? 'stroke-dasharray="4 4"' : ""}/>`;
+      if (n.active) {
+        pulses += `<circle r="2.6" fill="${verdictColor}"><animateMotion dur="2.6s" repeatCount="indefinite" path="${d}"/></circle>`;
+      }
+    });
+
+    right.forEach((n, i) => {
+      const y = rightYs[i] + nodeH / 2;
+      const d = `M 716 ${y} C 650 ${y}, 645 ${midY}, 595 ${midY}`;
+      const col = n.active ? verdictColor : (n.dashed ? n.color : "#334155");
+      paths += `<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${n.active ? 0.85 : 0.28}" stroke-width="${n.active ? 1.8 : 1}" ${n.dashed ? 'stroke-dasharray="4 4"' : ""}/>`;
+      if (n.active) {
+        pulses += `<circle r="2.6" fill="${verdictColor}"><animateMotion dur="2.6s" repeatCount="indefinite" path="${d}"/></circle>`;
+      }
+    });
+
+    function nodeSvg(x, y, w, n) {
+      const fill = n.active ? "rgba(15, 23, 42, 0.92)" : "rgba(7, 12, 26, 0.72)";
+      return `
+        <g class="s-node" data-inspect="${esc(n.id)}">
+          <rect x="${x}" y="${y}" width="${w}" height="${nodeH}" rx="3" fill="${fill}" stroke="${n.color}" stroke-opacity="${n.active ? 0.85 : 0.4}" stroke-width="${n.active ? 1.4 : 1}" ${n.dashed ? 'stroke-dasharray="4 3"' : ""}/>
+          <text x="${x + 12}" y="${y + 16}" fill="${n.color}" font-size="8.8" font-weight="600" letter-spacing="0.8" font-family="ui-monospace, monospace">${esc(n.kicker)}</text>
+          <text x="${x + 12}" y="${y + 32}" fill="#f8fafc" font-size="11.5" font-weight="600" font-family="ui-monospace, monospace">${esc(n.title)}</text>
+          <text x="${x + 12}" y="${y + 46}" fill="#94a3b8" font-size="10">${esc(n.sub)}</text>
+        </g>
+      `;
+    }
+
+    const centerNode = `
+      <g class="s-node" data-inspect="__OUTPUT__">
+        <rect x="405" y="${midY - 38}" width="190" height="76" rx="4" fill="rgba(7, 12, 26, 0.96)" stroke="${verdictColor}" stroke-width="1.8"/>
+        <text x="500" y="${midY - 17}" text-anchor="middle" fill="#64748b" font-size="8.8" font-weight="600" letter-spacing="1.2" font-family="ui-monospace, monospace">POLICY VERDICT</text>
+        <text x="500" y="${midY + 4}" text-anchor="middle" fill="#f8fafc" font-size="13.5" font-weight="700" font-family="ui-monospace, monospace">${esc(out.decision)}</text>
+        <text x="500" y="${midY + 23}" text-anchor="middle" fill="${verdictColor}" font-size="10" font-weight="600" font-family="ui-monospace, monospace">${esc(out.reason_code)}</text>
+      </g>
+    `;
+
+    return `
+      <svg class="stream-svg" viewBox="0 0 1000 ${svgH}" preserveAspectRatio="xMidYMid meet">
+        ${paths}
+        ${pulses}
+        ${left.map((n, i) => nodeSvg(14, leftYs[i], 270, n)).join("")}
+        ${centerNode}
+        ${right.map((n, i) => nodeSvg(716, rightYs[i], 270, n)).join("")}
+      </svg>
+    `;
+  }
+
+  function highlightSnippet(text, phrase, countries) {
+    let html = esc(text || "");
+    if (phrase) {
+      const reP = new RegExp(`(${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      html = html.replace(reP, '<span class="hl-phrase">$1</span>');
+    }
+    (countries || []).forEach(c => {
+      if (c.name && c.name.length > 2) {
+        const reC = new RegExp(`\\b(${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi");
+        html = html.replace(reC, '<span class="hl-country">$1</span>');
+      }
+    });
+    return html;
+  }
+
+  function renderCanvas(detail) {
     const out = detail.output;
     const resAlert = detail.resolved_alert;
     const hitProf = detail.hit_profile;
     const cands = resAlert.candidates || [];
     const cand = cands[state.selectedCandidateIdx] || cands[0];
-    const dc = decClass(out.decision);
-
-    let labelPill = "";
-    if (detail.label) {
-      const lm = detail.label_match;
-      const cls = lm === "MATCH" ? "diff" : (lm === "DECISION_ONLY" ? "rev" : "same");
-      const txt = lm === "MATCH"
-        ? `✓ Expected: ${detail.label.decision}`
-        : `Label: ${detail.label.decision} (${(detail.label.reason_codes || []).join("/")})`;
-      labelPill = `<span class="pill ${cls}">${esc(txt)}</span>`;
-    }
-
-    const cidDisp = out.customer_record_id === null ? "null" : out.customer_record_id;
-    const evidenceChipsHtml = (out.evidence || []).map(id => {
-      const focused = state.focusedRecordId === id ? "focused" : "";
-      const recMeta = detail.records_by_id && detail.records_by_id[id];
-      const kindTitle = recMeta ? `${recMeta.kind}: ${id}` : id;
-      return `<button class="ev-chip ${focused}" data-focus-id="${esc(id)}" title="${esc(kindTitle)}">${esc(id)}</button>`;
-    }).join("");
-
-    const graphHtml = renderResolutionGraphSVG(detail, cand);
-    const matrixHtml = renderComparisonMatrix(detail, cand);
-    const multiCandHtml = cands.length > 1 ? renderMultiCandidateSection(cands) : "";
-    const drawerHtml = renderDrawerSection(detail, cand);
-
-    els.inspectorPane.innerHTML = `
-      <!-- VERDICT BANNER -->
-      <div class="card">
-        <div class="verdict-top">
-          <div class="verdict-badges">
-            <span class="pill lg ${dc}">${esc(out.decision)}</span>
-            <span class="pill lg indigo mono">${esc(out.reason_code)}</span>
-            <span class="pill neutral mono" title="Resolved customer_record_id">Customer: ${esc(cidDisp)}</span>
-            <span class="pill cyan">${esc(resAlert.resolution_status)}</span>
-            <span class="pill neutral">${esc(hitProf.entity_type)}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            ${labelPill}
-            <span class="pill neutral mono">Screened: ${esc(detail.screened_at)}</span>
-          </div>
-        </div>
-        <div class="reason-box">${linkifyReasonText(out.reason || "", detail.records_by_id)}</div>
-        <div class="evidence-bar">
-          <span style="font-size:11px;color:var(--text-muted);margin-right:2px;">Minimal Evidence (${(out.evidence || []).length}):</span>
-          ${evidenceChipsHtml || '<span style="color:var(--text-muted);font-size:11px;">None</span>'}
-        </div>
-      </div>
-
-      <!-- INTERACTIVE SVG RESOLUTION GRAPH -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Entity & Evidence Resolution Graph</span>
-          <span style="font-size:11px;color:var(--text-muted);">Click any node to inspect raw source record</span>
-        </div>
-        <div class="graph-wrap">${graphHtml}</div>
-      </div>
-
-      ${multiCandHtml}
-
-      <!-- SIDE-BY-SIDE COMPARISON MATRIX -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Side-by-Side Policy Comparison ${cands.length > 1 ? `· Candidate ${cand.canonical_record_id || cand.cluster_id}` : ""}</span>
-          <span style="font-size:11px;color:var(--text-muted);">Trust Hierarchy: Tier 1 Verified > Tier 2 Declared > Tier 3 Contextual</span>
-        </div>
-        ${matrixHtml}
-      </div>
-
-      <!-- TABBED PROVENANCE DRAWER -->
-      <div class="card" id="provenanceDrawerCard">
-        ${drawerHtml}
-      </div>
-    `;
-
-    bindInspectorEvents(detail);
-  }
-
-  function renderResolutionGraphSVG(detail, cand) {
-    const out = detail.output;
-    const alert = detail.alert;
-    const hitProf = detail.hit_profile;
-    const trail = (cand && cand.raw_trail) || {};
-    const searchCand = (detail.search_shield_trace && detail.search_shield_trace.candidates) || [];
-
-    // Left column nodes (Customer side)
-    const leftNodes = [];
-    leftNodes.push({
-      id: alert.alert_id,
-      title: `Alert ${alert.alert_id}`,
-      sub: alert.account_ref ? `Ref: ${alert.account_ref}` : (alert.login_handle ? `Login: ${alert.login_handle}` : "Unlinked screen"),
-      badge: detail.screened_at,
-      fill: "#162033",
-      stroke: "#38bdf8",
-      dashed: false,
-    });
-
-    if (cand) {
-      if (cand.is_unresolved) {
-        leftNodes.push({
-          id: alert.alert_id,
-          title: "Unresolved Customer",
-          sub: "No unique CRM match",
-          badge: "UNRESOLVED",
-          fill: "#1e1b2e",
-          stroke: "#f59e0b",
-          dashed: true,
-        });
-      } else {
-        const merged = cand.record_ids && cand.record_ids.length > 1
-          ? `Merged: ${cand.record_ids.join(", ")}`
-          : `Record: ${cand.canonical_record_id}`;
-        leftNodes.push({
-          id: cand.canonical_record_id || cand.record_ids[0],
-          title: cand.canonical_record_id || "Customer Cluster",
-          sub: `${cand.effective_name || "Unknown"} · ${merged}`,
-          badge: detail.resolved_alert.resolution_status,
-          fill: "#132238",
-          stroke: "#6366f1",
-          dashed: false,
-        });
-      }
-
-      const quarantined = trail.quarantined_customers || [];
-      if (quarantined.length > 0) {
-        const q = quarantined[0];
-        leftNodes.push({
-          id: q.record_id,
-          title: `Quarantined: ${q.record_id}`,
-          sub: `${q.full_name || "?"} (DOB: ${q.dob || "?"})`,
-          badge: quarantined.length > 1 ? `FAMILY +${quarantined.length - 1}` : "SHARED PHONE",
-          fill: "#271c19",
-          stroke: "#f59e0b",
-          dashed: true,
-        });
-      }
-
-      const kycs = trail.kyc_checks || [];
-      kycs.slice(0, 3).forEach(k => {
-        const approved = k._tier_status === "TIER_1_APPROVED";
-        leftNodes.push({
-          id: k.check_id,
-          title: k.check_id,
-          sub: `${approved ? "Verified" : "Rejected/Expired"} · ${k.verified_dob || k.verified_name || k.document_country || ""}`,
-          badge: approved ? "TIER 1" : "TIER 0",
-          fill: approved ? "#0d2922" : "#181d26",
-          stroke: approved ? "#10b981" : "#64748b",
-          dashed: !approved,
-        });
-      });
-
-      const notes = trail.notes || [];
-      notes.slice(0, 2).forEach(n => {
-        const excl = n._tier_status === "TIER_0_EXCLUDED";
-        leftNodes.push({
-          id: n.note_id,
-          title: `${n.note_id} (${n.channel || "note"})`,
-          sub: (n.text || "").slice(0, 34) + ((n.text || "").length > 34 ? "…" : ""),
-          badge: excl ? "TIER 0" : "NOTE",
-          fill: excl ? "#181d26" : "#152235",
-          stroke: excl ? "#64748b" : "#38bdf8",
-          dashed: excl,
-        });
-      });
-    }
-
-    // Right column nodes (Watchlist + Search Shield)
-    const rightNodes = [];
-    rightNodes.push({
-      id: hitProf.hit_id,
-      title: `Hit ${hitProf.hit_id}`,
-      sub: `${hitProf.primary_name} (${hitProf.entity_type})`,
-      badge: out.decision === "SAME_ENTITY" ? "MATCH?" : "WATCHLIST",
-      fill: "#1f1930",
-      stroke: "#a78bfa",
-      dashed: false,
-    });
-
-    const dobTxt = hitProf.dobs && hitProf.dobs.length
-      ? `${hitProf.dobs.join(", ")} (${hitProf.dob_source})`
-      : "No DOB settled";
-    rightNodes.push({
-      id: hitProf.hit_id,
-      title: "Profile & Countries",
-      sub: `DOB: ${dobTxt}`,
-      badge: hitProf.countries.map(c => c.iso).join(", ") || "NO CTRY",
-      fill: "#162033",
-      stroke: "#64748b",
-      dashed: false,
-    });
-
-    if (hitProf.earliest_report_date || hitProf.deceased_date) {
-      rightNodes.push({
-        id: hitProf.hit_id,
-        title: hitProf.deceased_date ? "Deceased Date" : "Earliest Report",
-        sub: hitProf.deceased_date
-          ? `Died ${hitProf.deceased_date} (Screened ${detail.screened_at})`
-          : `Report dated ${hitProf.earliest_report_date}`,
-        badge: hitProf.deceased_date ? "DECEASED" : "DATED REPORT",
-        fill: "#271b24",
-        stroke: "#f43f5e",
-        dashed: false,
-      });
-    }
-
-    // Add up to 4 Search Shield rows (prioritize anchored/used first, then blocked decoys)
-    const sortedSr = [...searchCand].sort((a, b) => {
-      const rank = s => s === "USED_FOR_DOB" ? 0 : (s === "ANCHORED_NO_DOB" ? 1 : (s === "BLOCKED" ? 2 : 3));
-      return rank(a.status) - rank(b.status);
-    });
-    const shownSr = sortedSr.slice(0, 4);
-    shownSr.forEach(sr => {
-      const ok = sr.status === "USED_FOR_DOB" || sr.status === "ANCHORED_NO_DOB";
-      const blk = sr.status === "BLOCKED";
-      rightNodes.push({
-        id: sr.result_id,
-        title: `Search ${sr.result_id}`,
-        sub: ok ? (sr.snippet || "").slice(0, 34) + "…" : (sr.block_reason || "Blocked").slice(0, 34) + "…",
-        badge: sr.status === "USED_FOR_DOB" ? "ANCHORED" : sr.status,
-        fill: ok ? "#0d2922" : (blk ? "#25141c" : "#181d26"),
-        stroke: ok ? "#10b981" : (blk ? "#f43f5e" : "#64748b"),
-        dashed: blk || sr.status === "NOT_NEEDED",
-      });
-    });
-
-    const nodeH = 54;
-    const gapY = 12;
-    const topPad = 18;
-    const rows = Math.max(leftNodes.length, rightNodes.length, 3);
-    const svgH = Math.max(240, topPad * 2 + rows * nodeH + (rows - 1) * gapY);
-    const centerY = svgH / 2 - 42;
-
-    const decStroke = out.decision === "DIFFERENT_ENTITY" ? "#10b981" : (out.decision === "SAME_ENTITY" ? "#f43f5e" : "#f59e0b");
-    const decFill = out.decision === "DIFFERENT_ENTITY" ? "#0b2821" : (out.decision === "SAME_ENTITY" ? "#2d121d" : "#2b200d");
-
-    const evSet = new Set(out.evidence || []);
-
-    function drawBox(x, y, w, n) {
-      const dashAttr = n.dashed ? 'stroke-dasharray="5 3"' : "";
-      const isEv = evSet.has(n.id);
-      const badgeColor = n.stroke;
-      return `
-        <g class="g-node" data-focus-id="${esc(n.id)}">
-          <rect x="${x}" y="${y}" width="${w}" height="${nodeH}" rx="8"
-                fill="${n.fill}" stroke="${n.stroke}" stroke-width="${isEv ? 2 : 1.3}" ${dashAttr} />
-          <text x="${x + 11}" y="${y + 20}" fill="#f1f5f9" font-size="11.5" font-weight="700" font-family="ui-monospace, monospace">${esc(n.title)}</text>
-          <text x="${x + 11}" y="${y + 39}" fill="#94a3b8" font-size="10.5">${esc(n.sub)}</text>
-          <rect x="${x + w - 82}" y="${y + 7}" width="73" height="16" rx="4" fill="rgba(0,0,0,0.35)" stroke="${badgeColor}" stroke-width="0.8"/>
-          <text x="${x + w - 45.5}" y="${y + 18.5}" text-anchor="middle" fill="${badgeColor}" font-size="8.5" font-weight="700" font-family="ui-monospace, monospace">${esc(n.badge.slice(0, 11))}</text>
-        </g>
-      `;
-    }
-
-    let edges = "";
-    const leftPositions = leftNodes.map((_, i) => topPad + i * (nodeH + gapY));
-    const rightPositions = rightNodes.map((_, i) => topPad + i * (nodeH + gapY));
-
-    // Left internal links + edges to Center Verdict
-    leftNodes.forEach((n, i) => {
-      const yMid = leftPositions[i] + nodeH / 2;
-      if (i > 0) {
-        const y0 = leftPositions[0] + nodeH / 2;
-        edges += `<path d="M 30 ${y0} C 8 ${y0}, 8 ${yMid}, 30 ${yMid}" fill="none" stroke="${n.dashed ? '#475569' : '#334155'}" stroke-width="1.2" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
-      }
-      const isEv = evSet.has(n.id) || (i === 1 && !cand.is_unresolved);
-      const col = isEv ? decStroke : "#334155";
-      const op = isEv ? "0.85" : "0.35";
-      const sw = isEv ? "1.8" : "1";
-      edges += `<path d="M 300 ${yMid} C 345 ${yMid}, 345 ${centerY + 42}, 385 ${centerY + 42}" fill="none" stroke="${col}" stroke-opacity="${op}" stroke-width="${sw}" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
-    });
-
-    // Right edges from Center Verdict to Watchlist nodes
-    rightNodes.forEach((n, i) => {
-      const yMid = rightPositions[i] + nodeH / 2;
-      const isEv = evSet.has(n.id) || i === 0;
-      const col = (n.status === "BLOCKED") ? "#f43f5e" : (isEv ? decStroke : "#334155");
-      const op = (n.status === "BLOCKED") ? "0.45" : (isEv ? "0.85" : "0.35");
-      const sw = isEv && !n.dashed ? "1.8" : "1";
-      edges += `<path d="M 595 ${centerY + 42} C 635 ${centerY + 42}, 635 ${yMid}, 680 ${yMid}" fill="none" stroke="${col}" stroke-opacity="${op}" stroke-width="${sw}" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
-    });
-
-    const leftSvg = leftNodes.map((n, i) => drawBox(30, leftPositions[i], 270, n)).join("");
-    const rightSvg = rightNodes.map((n, i) => drawBox(680, rightPositions[i], 270, n)).join("");
-
-    const centerSvg = `
-      <g>
-        <rect x="385" y="${centerY}" width="210" height="84" rx="10" fill="${decFill}" stroke="${decStroke}" stroke-width="2"/>
-        <text x="490" y="${centerY + 23}" text-anchor="middle" fill="#94a3b8" font-size="9.5" font-weight="700" letter-spacing="1">POLICY ENGINE VERDICT</text>
-        <text x="490" y="${centerY + 46}" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="700">${esc(out.decision)}</text>
-        <text x="490" y="${centerY + 66}" text-anchor="middle" fill="${decStroke}" font-size="11" font-weight="700" font-family="ui-monospace, monospace">${esc(out.reason_code)}</text>
-      </g>
-    `;
-
-    const overflowNote = sortedSr.length > 4
-      ? `<text x="680" y="${svgH - 6}" fill="#64748b" font-size="10">+ ${sortedSr.length - 4} more Search Shield candidate(s) in Watchlist tab</text>`
-      : "";
-
-    return `
-      <svg class="graph-svg" viewBox="0 0 980 ${svgH}" preserveAspectRatio="xMidYMid meet">
-        <text x="30" y="12" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">CUSTOMER SIDE (RECONSTRUCTED)</text>
-        <text x="490" y="12" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">REASONING GATE</text>
-        <text x="680" y="12" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">WATCHLIST & SEARCH SHIELD</text>
-        ${edges}
-        ${leftSvg}
-        ${centerSvg}
-        ${rightSvg}
-        ${overflowNote}
-      </svg>
-    `;
-  }
-
-  function renderMultiCandidateSection(cands) {
-    const rows = cands.map((c, idx) => {
-      const ev = c.evaluation || {};
-      const sel = idx === state.selectedCandidateIdx ? "selected-cand" : "";
-      const dc = decClass(ev.decision);
-      const countries = (c.countries || []).map(x => `${x.name} (${x.iso})`).join(", ") || "Unknown";
-      return `
-        <tr class="cand-row ${sel}" data-cand-idx="${idx}">
-          <td class="mono"><strong>${esc(c.canonical_record_id || c.cluster_id)}</strong>${c.record_ids.length > 1 ? `<br><span style="font-size:10px;color:var(--text-muted);">Cluster: ${esc(c.record_ids.join(", "))}</span>` : ""}</td>
-          <td>${esc(c.effective_name || "Unknown")}</td>
-          <td class="mono">${esc(c.dob || "None")}</td>
-          <td>${esc(countries)}</td>
-          <td><span class="pill ${dc}">${esc(ev.decision || "—")}</span></td>
-          <td class="mono">${esc((ev.all_applicable_codes || [ev.reason_code]).join(", "))}</td>
-        </tr>
-      `;
-    }).join("");
-
-    return `
-      <div class="card" style="border-color:var(--amber-border);">
-        <div class="card-header">
-          <span class="card-title" style="color:#fcd34d;">Ambiguous Customer Multi-Candidate Evaluation (${cands.length} distinct people)</span>
-          <span style="font-size:11px;color:var(--text-muted);">Click a row to inspect that candidate's trail below</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Candidate ID</th>
-              <th>Effective Name</th>
-              <th>DOB / Inc.</th>
-              <th>Countries</th>
-              <th>Independent Decision</th>
-              <th>Applicable Rules</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function renderComparisonMatrix(detail, cand) {
-    if (!cand) return `<div style="color:var(--text-muted);">No candidate profile.</div>`;
-    const hitProf = detail.hit_profile;
-    const ev = cand.evaluation || {};
+    const ev = (cand && cand.evaluation) || {};
     const facts = ev.facts || {};
+    const dCls = decCls(out.decision);
 
-    // 1. Entity Type
-    const etSame = cand.entity_type === hitProf.entity_type;
-    const etBadge = etSame ? `<span class="pill neutral">AGREE</span>` : `<span class="pill diff">MISMATCH (CLEAR)</span>`;
+    const custDisplay = (cand && cand.effective_name) || (detail.alert.customer && detail.alert.customer.name) || "Unknown";
+    const cidDisplay = out.customer_record_id === null ? "null" : out.customer_record_id;
 
-    // 2. Names
-    const custNameHtml = cand.verified_name
-      ? `<div><span class="pill indigo" style="margin-right:4px;">TIER 1 VERIFIED</span> <strong>${esc(cand.verified_name)}</strong> <span class="mono" style="color:var(--text-muted);font-size:11px;">(${esc(cand.verified_name_source_id)})</span></div>`
-      : "";
-    const declHtml = (cand.declared_names || []).map(d =>
-      `<div style="font-size:11px;color:var(--text-secondary);">Declared: <strong>${esc(d.name)}</strong> <span class="mono" style="color:var(--text-muted);">(${esc(d.source_id)})</span></div>`
-    ).join("");
-    const hitNamesHtml = `<div><strong>${esc(hitProf.primary_name)}</strong></div>` +
-      (hitProf.all_names.length > 1
-        ? `<div style="font-size:11px;color:var(--text-secondary);">Aliases: ${esc(hitProf.all_names.slice(1).join(" · "))}</div>`
-        : "");
-
-    let nameBadge = `<span class="pill neutral">UNRESOLVED / INCONCLUSIVE</span>`;
-    if (facts.short_individual_name) nameBadge = `<span class="pill rev">&lt; 2 REAL PARTS</span>`;
-    else if (facts.name_agrees) nameBadge = `<span class="pill same">NAME AGREES</span>`;
-    else if (ev.reason_code === "NAME_MISMATCH_VERIFIED" || (ev.all_applicable_codes || []).includes("NAME_MISMATCH_VERIFIED")) {
-      nameBadge = `<span class="pill diff">VERIFIED MISMATCH</span>`;
+    let lblStatus = "";
+    if (detail.label) {
+      lblStatus = detail.label_match === "MATCH"
+        ? `<span class="mono" style="color:#34d399;font-size:11px;">✓ MATCHES LABEL</span>`
+        : `<span class="mono" style="color:#fbbf24;font-size:11px;">LABEL: ${esc(detail.label.decision)}</span>`;
     }
 
-    // 3. DOB Waterfall
-    const custDobHtml = cand.dob
-      ? `<span class="pill ${cand.dob_is_verified ? 'indigo' : 'neutral'}" style="margin-right:5px;">${cand.dob_is_verified ? 'TIER 1 VERIFIED' : 'DECLARED'}</span> <strong class="mono">${esc(cand.dob)}</strong> <span class="mono" style="color:var(--text-muted);font-size:11px;">(${esc(cand.dob_source_id)})</span>`
-      : `<span style="color:var(--text-muted);">Not settled</span>`;
+    // Multi-candidate bar if AMBIGUOUS
+    const candStripHtml = cands.length > 1 ? `
+      <div class="cand-strip">
+        ${cands.map((c, idx) => {
+          const cev = c.evaluation || {};
+          return `
+            <button class="cand-tab ${idx === state.selectedCandidateIdx ? "active" : ""}" data-cidx="${idx}">
+              <div class="mono" style="font-size:11px;font-weight:600;color:var(--ink);">
+                <span class="dot ${decCls(cev.decision)}" style="margin-right:6px;"></span>${esc(c.canonical_record_id || c.cluster_id)}
+              </div>
+              <div class="mono" style="font-size:10px;color:var(--ink-3);margin-top:2px;">
+                ${esc(c.effective_name || "?")} · ${esc(c.dob || "No DOB")} → ${esc(cev.reason_code || "—")}
+              </div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    ` : "";
 
-    const wfLabels = {
-      dobs_field: "Step 1 · Structured dobs[]",
+    // Ledger comparisons
+    const etOp = cand && cand.entity_type === hitProf.entity_type ? `<span style="color:var(--ink-3);">==</span>` : `<span style="color:var(--emerald);">≠</span>`;
+    const nameOp = facts.short_individual_name
+      ? `<span style="color:var(--amber);">?</span>`
+      : (facts.name_agrees ? `<span style="color:var(--crimson);">≡</span>` : ((ev.all_applicable_codes || []).includes("NAME_MISMATCH_VERIFIED") ? `<span style="color:var(--emerald);">≠</span>` : `<span style="color:var(--ink-3);">?</span>`));
+    const dobOp = facts.dob_status === "CONTRADICT"
+      ? `<span style="color:var(--emerald);">≠</span>`
+      : (facts.dob_status === "AGREE" ? `<span style="color:var(--crimson);">≡</span>` : `<span style="color:var(--ink-3);">?</span>`);
+    const sharedSet = new Set(facts.shared_countries || []);
+    const geoOp = sharedSet.size > 0
+      ? `<span style="color:var(--crimson);">∩</span>`
+      : (facts.countries_disjoint ? `<span style="color:var(--emerald);">≠</span>` : `<span style="color:var(--ink-3);">?</span>`);
+    const tempOp = (ev.all_applicable_codes || []).some(c => c === "DECEASED" || c === "TEMPORAL_IMPOSSIBILITY")
+      ? `<span style="color:var(--emerald);">≠</span>`
+      : `<span style="color:var(--ink-3);">—</span>`;
+
+    const wfStepNames = {
+      dobs_field: "Step 1 · Structured hit.dobs[]",
       profile_notes: "Step 2 · First-para profile_notes",
       search_results: "Step 3 · Anchored search_results",
     };
-    const hitDobHtml = hitProf.dobs && hitProf.dobs.length
-      ? `<div><span class="pill cyan" style="margin-right:5px;">${esc(wfLabels[hitProf.dob_source] || hitProf.dob_source)}</span> <strong class="mono">${esc(hitProf.dobs.join(", "))}</strong></div>` +
-        (hitProf.dob_detail ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Detail: ${esc(hitProf.dob_detail)}</div>` : "")
-      : `<span style="color:var(--text-muted);">None across 3-step waterfall</span>`;
 
-    let dobBadge = `<span class="pill neutral">INCONCLUSIVE</span>`;
-    if (facts.dob_status === "AGREE") dobBadge = `<span class="pill same">AGREE</span>`;
-    else if (facts.dob_status === "CONTRADICT") dobBadge = `<span class="pill diff">CONTRADICT</span>`;
-
-    // 4. Countries
-    const sharedSet = new Set(facts.shared_countries || []);
-    const custCtryHtml = (cand.countries || []).length
-      ? cand.countries.map(c => {
-          const isShared = sharedSet.has(c.iso);
-          const pCls = isShared ? "same" : (facts.countries_disjoint ? "diff" : "neutral");
-          return `<span class="pill ${pCls}" style="margin:0 4px 4px 0;" title="Sources: ${esc(c.sources.join(', '))}">${esc(c.name)} (${esc(c.iso)}) · ${esc(c.sources.join(","))}</span>`;
-        }).join("")
-      : `<span style="color:var(--text-muted);">No settled country</span>`;
-
-    const hitCtryHtml = (hitProf.countries || []).length
-      ? hitProf.countries.map(c => {
-          const isShared = sharedSet.has(c.iso);
-          const pCls = isShared ? "same" : (facts.countries_disjoint ? "diff" : "neutral");
-          return `<span class="pill ${pCls}" style="margin:0 4px 4px 0;">${esc(c.name)} (${esc(c.iso)})</span>`;
-        }).join("")
-      : `<span style="color:var(--text-muted);">None listed</span>`;
-
-    let ctryBadge = `<span class="pill neutral">INCOMPLETE</span>`;
-    if (sharedSet.size > 0) ctryBadge = `<span class="pill same">SHARED (${Array.from(sharedSet).join(", ")})</span>`;
-    else if (facts.countries_disjoint) ctryBadge = `<span class="pill diff">DISJOINT</span>`;
-
-    // 5. Temporal / Life Status
-    const custTemp = `Screened: <span class="mono">${esc(detail.screened_at)}</span>` +
-      (facts.max_age_at_report !== null && facts.max_age_at_report !== undefined
-        ? `<br><span style="font-size:11px;color:var(--text-secondary);">Max age at earliest report: <strong>${facts.max_age_at_report}</strong> (min 16 required)</span>`
-        : "");
-    const hitTempParts = [];
-    if (hitProf.earliest_report_date) hitTempParts.push(`Earliest report: <span class="mono">${esc(hitProf.earliest_report_date)}</span>`);
-    if (hitProf.deceased_date) hitTempParts.push(`Deceased date: <span class="mono">${esc(hitProf.deceased_date)}</span>`);
-    else if (hitProf.life_status) hitTempParts.push(`Life status: <strong>${esc(hitProf.life_status)}</strong> (no deceased_date)`);
-    const hitTemp = hitTempParts.length ? hitTempParts.join("<br>") : `<span style="color:var(--text-muted);">No dated report or death date</span>`;
-
-    let tempBadge = `<span class="pill neutral">OK / N/A</span>`;
-    const codes = ev.all_applicable_codes || [];
-    if (codes.includes("DECEASED")) tempBadge = `<span class="pill diff">DECEASED PRIOR</span>`;
-    else if (codes.includes("TEMPORAL_IMPOSSIBILITY")) tempBadge = `<span class="pill diff">TEMPORAL IMPOSSIBLE</span>`;
-
-    return `
-      <table>
-        <thead>
-          <tr>
-            <th style="width:140px;">Attribute</th>
-            <th>Customer Side (Resolved Profile)</th>
-            <th>Watchlist Side (Hit Profile)</th>
-            <th style="width:160px;">Comparison</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Entity Type</strong></td>
-            <td>${esc(cand.entity_type)}</td>
-            <td>${esc(hitProf.entity_type)}</td>
-            <td>${etBadge}</td>
-          </tr>
-          <tr>
-            <td><strong>Names & Aliases</strong></td>
-            <td>${custNameHtml}${declHtml || (custNameHtml ? "" : "<span style='color:var(--text-muted);'>None</span>")}</td>
-            <td>${hitNamesHtml}</td>
-            <td>${nameBadge}</td>
-          </tr>
-          <tr>
-            <td><strong>DOB / Inc. Date</strong></td>
-            <td>${custDobHtml}</td>
-            <td>${hitDobHtml}</td>
-            <td>${dobBadge}</td>
-          </tr>
-          <tr>
-            <td><strong>Countries & Territories</strong></td>
-            <td>${custCtryHtml}</td>
-            <td>${hitCtryHtml}</td>
-            <td>${ctryBadge}</td>
-          </tr>
-          <tr>
-            <td><strong>Temporal & Life Status</strong></td>
-            <td>${custTemp}</td>
-            <td>${hitTemp}</td>
-            <td>${tempBadge}</td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-  }
-
-  function renderDrawerSection(detail, cand) {
-    const tabs = [
-      { id: "evidence", label: `Deciding Evidence (${(detail.output.evidence || []).length})` },
-      { id: "customer", label: "Customer Trail" },
-      { id: "watchlist", label: "Watchlist & Search Shield" },
-      { id: "json", label: "Raw Output & Labels" },
-    ];
-
-    const navHtml = `<div class="tabs-nav">${tabs.map(t => `
-      <button class="tab-btn ${state.activeTab === t.id ? "active" : ""}" data-tab="${t.id}">${esc(t.label)}</button>
-    `).join("")}</div>`;
-
-    let bodyHtml = "";
-    if (state.activeTab === "evidence") bodyHtml = renderEvidenceTab(detail);
-    else if (state.activeTab === "customer") bodyHtml = renderCustomerTrailTab(detail, cand);
-    else if (state.activeTab === "watchlist") bodyHtml = renderWatchlistTab(detail);
-    else bodyHtml = renderRawJsonTab(detail);
-
-    return navHtml + bodyHtml;
-  }
-
-  function renderRecordCard(kind, id, data, extraClass = "", badgeHtml = "") {
-    const focused = state.focusedRecordId === id ? "focused" : "";
-    const entries = Object.entries(data || {}).filter(([k]) => k !== "_tier_status");
-    const kvHtml = entries.map(([k, v]) => {
-      const valStr = (v === null || v === undefined)
-        ? '<span style="color:var(--text-muted);">null</span>'
-        : (typeof v === "object" ? esc(JSON.stringify(v)) : esc(String(v)));
-      return `<div class="kv-k">${esc(k)}</div><div class="kv-v">${valStr}</div>`;
-    }).join("");
-
-    return `
-      <div class="record-card ${extraClass} ${focused}" data-record-card="${esc(id)}">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding-bottom:6px;">
-          <div>
-            <span class="mono" style="font-weight:700;color:#67e8f9;">${esc(id)}</span>
-            <span style="font-size:11px;color:var(--text-secondary);margin-left:6px;">${esc(kind)}</span>
-          </div>
-          ${badgeHtml}
-        </div>
-        <div class="kv-list">${kvHtml}</div>
-      </div>
-    `;
-  }
-
-  function renderEvidenceTab(detail) {
-    const ids = [...(detail.output.evidence || [])];
-    if (state.focusedRecordId && !ids.includes(state.focusedRecordId) && detail.records_by_id[state.focusedRecordId]) {
-      ids.unshift(state.focusedRecordId);
-    }
-    if (!ids.length) return `<div style="color:var(--text-muted);">No deciding evidence IDs.</div>`;
-
-    const cards = ids.map(id => {
-      const rec = detail.records_by_id[id];
-      if (!rec) return `<div class="record-card">${esc(id)} (record unavailable)</div>`;
-      const isDeciding = (detail.output.evidence || []).includes(id);
-      const badge = isDeciding ? `<span class="pill cyan">DECIDING EVIDENCE</span>` : `<span class="pill neutral">INSPECTED</span>`;
-      return renderRecordCard(rec.kind, id, rec.data, "", badge);
-    }).join("");
-    return `<div class="record-grid">${cards}</div>`;
-  }
-
-  function renderCustomerTrailTab(detail, cand) {
-    const trail = (cand && cand.raw_trail) || {};
-    const sections = [];
-
-    sections.push(`<div style="margin-bottom:10px;">
-      <div class="card-title" style="margin-bottom:6px;">Alert & Direct Link</div>
-      <div class="record-grid">
-        ${renderRecordCard("Alert", detail.alert.alert_id, detail.alert)}
-        ${(detail.direct_accounts || []).map(a => renderRecordCard("Direct Account", a.account_id, a)).join("")}
-      </div>
-    </div>`);
-
-    if ((trail.customers || []).length) {
-      sections.push(`<div style="margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:6px;">Merged Person Cluster CRM Records (${trail.customers.length})</div>
-        <div class="record-grid">${trail.customers.map(c => renderRecordCard("Customer CRM", c.record_id, c, "", c.record_id === cand.canonical_record_id ? '<span class="pill indigo">CANONICAL</span>' : '<span class="pill neutral">MERGED</span>')).join("")}</div>
-      </div>`);
-    }
-
-    if ((trail.quarantined_customers || []).length) {
-      sections.push(`<div style="margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:6px;color:#fcd34d;">Quarantined Family / Shared-Phone CRM Records (${trail.quarantined_customers.length})</div>
-        <div class="record-grid">${trail.quarantined_customers.map(q => renderRecordCard("Quarantined CRM", q.record_id, q, "excluded", '<span class="pill rev">QUARANTINED</span>')).join("")}</div>
-      </div>`);
-    }
-
-    if ((trail.kyc_checks || []).length) {
-      sections.push(`<div style="margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:6px;">KYC Checks (${trail.kyc_checks.length})</div>
-        <div class="record-grid">${trail.kyc_checks.map(k => {
-          const ok = k._tier_status === "TIER_1_APPROVED";
-          const b = ok ? '<span class="pill diff">TIER 1 APPROVED</span>' : '<span class="pill muted-strike">TIER 0 EXCLUDED</span>';
-          return renderRecordCard("KYC Check", k.check_id, k, ok ? "" : "excluded", b);
-        }).join("")}</div>
-      </div>`);
-    }
-
-    if ((trail.notes || []).length) {
-      sections.push(`<div style="margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:6px;">Customer Notes Harvested by Email (${trail.notes.length})</div>
-        <div class="record-grid">${trail.notes.map(n => {
-          const excl = n._tier_status === "TIER_0_EXCLUDED";
-          const b = excl ? '<span class="pill muted-strike">TIER 0 EXCLUDED</span>' : `<span class="pill cyan">${esc(n.channel || "note")}</span>`;
-          return renderRecordCard(`Note (${n.channel || "note"})`, n.note_id, n, excl ? "excluded" : "", b);
-        }).join("")}</div>
-      </div>`);
-    }
-
-    if ((trail.onboarding || []).length) {
-      sections.push(`<div>
-        <div class="card-title" style="margin-bottom:6px;">Onboarding & Accounts</div>
-        <div class="record-grid">
-          ${trail.onboarding.map(o => renderRecordCard("Onboarding", o.kyc_applicant_id, o)).join("")}
-          ${(trail.accounts || []).map(a => renderRecordCard("Account", a.account_id, a)).join("")}
-        </div>
-      </div>`);
-    }
-
-    return sections.join("");
-  }
-
-  function highlightProfileNotes(raw) {
-    if (!raw) return '<span style="color:var(--text-muted);">No profile_notes</span>';
-    return esc(raw).replace(
-      /(According to [^\n:]+;\s*[^:\n]+:)/gi,
-      '<span class="note-highlight">$1</span>'
-    ).replace(/\n/g, "<br>");
-  }
-
-  function renderWatchlistTab(detail) {
+    // Search Shield rows
     const st = detail.search_shield_trace || { candidates: [] };
-    const srRows = (st.candidates || []).map(r => {
-      let badgeCls = "neutral";
-      if (r.status === "USED_FOR_DOB") badgeCls = "diff";
-      else if (r.status === "ANCHORED_NO_DOB") badgeCls = "cyan";
-      else if (r.status === "BLOCKED") badgeCls = "same";
+    const shieldHtml = (st.candidates || []).length > 0 ? `
+      <section class="section-block">
+        <div class="section-head">
+          <span class="kicker">ANTI-NAMESAKE SEARCH SHIELD · REQUIRED PHRASE: “${esc(st.listing_phrase)}”</span>
+          <span class="mono" style="font-size:11px;color:var(--ink-3);">${st.candidates.length} CANDIDATES EVALUATED</span>
+        </div>
+        <div>
+          ${st.candidates.map(r => {
+            const ok = r.status === "USED_FOR_DOB" || r.status === "ANCHORED_NO_DOB";
+            const statusCol = ok ? "#34d399" : (r.status === "BLOCKED" ? "#fb7185" : "#64748b");
+            return `
+              <div class="shield-row" data-inspect="${esc(r.result_id)}">
+                <div class="mono" style="font-size:11.5px;font-weight:600;color:var(--ink);">${esc(r.result_id)}</div>
+                <div>
+                  <div style="font-size:12.5px;font-weight:500;color:var(--ink);margin-bottom:3px;">${esc(r.title || "")}</div>
+                  <div style="font-size:12px;color:var(--ink-2);line-height:1.55;">${highlightSnippet(r.snippet, st.listing_phrase, r.found_countries)}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="mono" style="font-size:10.5px;font-weight:700;color:${statusCol};">${esc(r.status)}</div>
+                  ${r.block_reason ? `<div style="font-size:10.5px;color:var(--ink-3);margin-top:3px;">${esc(r.block_reason)}</div>` : ""}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    ` : "";
 
-      const foundC = (r.found_countries || []).map(c => `${c.name} (${c.iso})`).join(", ") || "None";
-      return `
-        <tr>
-          <td class="mono"><strong>${esc(r.result_id)}</strong><br><span style="font-size:10px;color:var(--text-muted);">${esc(r.query || "")}</span></td>
-          <td><div style="font-weight:600;margin-bottom:3px;">${esc(r.title || "")}</div><div style="color:var(--text-secondary);font-size:11.5px;">${esc(r.snippet || "")}</div></td>
-          <td>${r.phrase_matched ? '<span class="pill diff">✓ Phrase</span>' : '<span class="pill same">✗ Phrase</span>'}<br style="margin-bottom:4px;">${r.country_matched ? `<span class="pill diff" style="margin-top:4px;">✓ ${esc(foundC)}</span>` : `<span class="pill neutral" style="margin-top:4px;">Countries: ${esc(foundC)}</span>`}</td>
-          <td><span class="pill ${badgeCls}">${esc(r.status)}</span>${r.block_reason ? `<div style="font-size:10.5px;color:#fda4af;margin-top:4px;">${esc(r.block_reason)}</div>` : ""}</td>
-        </tr>
+    // Watchlist Profile Notes
+    const pnRaw = detail.hit_raw && detail.hit_raw.profile_notes;
+    const notesHtml = pnRaw ? `
+      <section class="section-block">
+        <div class="section-head">
+          <span class="kicker">WATCHLIST PROFILE NOTES</span>
+          <button class="ghost-btn" data-inspect="${esc(hitProf.hit_id)}">INSPECT RAW HIT →</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.65;color:var(--ink-2);white-space:pre-wrap;max-width:900px;">${
+          esc(pnRaw).replace(/(According to [^\n:]+;\s*[^:\n]+:)/gi, '<span class="hl-date">$1</span>')
+        }</div>
+      </section>
+    ` : "";
+
+    // Trail Summary Grid
+    const trail = (cand && cand.raw_trail) || {};
+    const trailItems = [];
+    (trail.customers || []).forEach(c => trailItems.push({ id: c.record_id, tag: c.record_id === cand.canonical_record_id ? "CRM · CANONICAL" : "CRM · MERGED", title: c.full_name, sub: `${c.dob || "No DOB"} · ${c.residence_country || "?"}`, excl: false }));
+    (trail.quarantined_customers || []).forEach(q => trailItems.push({ id: q.record_id, tag: "QUARANTINED · FAMILY", title: q.full_name, sub: `Shared phone, DOB ${q.dob || "?"}`, excl: true }));
+    (trail.kyc_checks || []).forEach(k => trailItems.push({ id: k.check_id, tag: k._tier_status === "TIER_1_APPROVED" ? "KYC · TIER 1 APPROVED" : "KYC · TIER 0 EXCLUDED", title: k.verified_name || k.check_id, sub: `${k.verified_dob || "No DOB"} · ${k.document_country || "?"}`, excl: k._tier_status !== "TIER_1_APPROVED" }));
+    (trail.notes || []).forEach(n => trailItems.push({ id: n.note_id, tag: `NOTE · ${(n.channel || "note").toUpperCase()}`, title: (n.text || "").slice(0, 44) + "…", sub: n.created_at || "", excl: n._tier_status === "TIER_0_EXCLUDED" }));
+
+    els.canvas.innerHTML = `
+      <div class="canvas-inner">
+        <!-- EDITORIAL HERO -->
+        <section class="hero">
+          <div class="hero-ambient ${dCls}"></div>
+          <div class="hero-kicker-row">
+            <div class="kicker">
+              ${esc(out.hit_id)} &nbsp;/&nbsp; ALERT ${esc(out.alert_id)} &nbsp;/&nbsp; ${esc(resAlert.resolution_status)} &nbsp;/&nbsp; ${esc(hitProf.entity_type)} &nbsp;/&nbsp; SCREENED ${esc(detail.screened_at)}
+            </div>
+            <div class="hero-actions">
+              ${lblStatus}
+              <button class="ghost-btn" data-inspect="__OUTPUT__">OUTPUT JSONL ↗</button>
+            </div>
+          </div>
+
+          <h1 class="hero-headline">
+            <span>${esc(custDisplay)}</span>
+            <span class="hero-op ${dCls}">${decOp(out.decision)}</span>
+            <span class="hero-hit-name">${esc(hitProf.primary_name)}</span>
+          </h1>
+
+          <div class="verdict-row">
+            <span class="verdict-label ${dCls}"><span class="dot ${dCls}"></span>${esc(out.decision)}</span>
+            <span class="code-tag">${esc(out.reason_code)}</span>
+            <span class="meta-tag">CUSTOMER_ID: <strong style="color:var(--ink-2);">${esc(cidDisplay)}</strong></span>
+          </div>
+
+          <p class="narrative-prose">${linkifyReason(out.reason || "", detail.records_by_id)}</p>
+
+          <div class="evidence-strip">
+            <span class="kicker">DECIDING EVIDENCE</span>
+            ${(out.evidence || []).map(id => `<button class="ev-link" data-inspect="${esc(id)}">${esc(id)}</button>`).join("")}
+          </div>
+        </section>
+
+        <!-- HORIZONTAL POLICY PRECEDENCE PIPELINE -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">POLICY PRECEDENCE EVALUATION PIPELINE</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLEARANCE 60:3 · CONFIRMATION 2:2</span>
+          </div>
+          ${renderPrecedenceTrack(detail, cand)}
+          ${candStripHtml}
+        </section>
+
+        <!-- FULL-BLEED ANIMATED NEURAL PROVENANCE STREAM -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">NEURO-SYMBOLIC PROVENANCE STREAM</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLICK ANY NODE TO INSPECT SOURCE</span>
+          </div>
+          <div class="stream-stage">${renderProvenanceStreamSVG(detail, cand)}</div>
+        </section>
+
+        <!-- OPEN-CANVAS HAIRLINE T-ACCOUNT LEDGER -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">ENTITY COMPARISON LEDGER</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">TIER 1 VERIFIED &gt; TIER 2 DECLARED &gt; TIER 3 CONTEXTUAL</span>
+          </div>
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Customer Side (Reconstructed)</th>
+                <th style="text-align:center;">Op</th>
+                <th>Watchlist Subject (Resolved)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ledger-dim">Entity Type</td>
+                <td>${esc(cand ? cand.entity_type : "—")}</td>
+                <td class="ledger-op">${etOp}</td>
+                <td>${esc(hitProf.entity_type)}</td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Identity</td>
+                <td>
+                  ${cand && cand.verified_name ? `<div><span class="tier-tag">T1 VERIFIED</span><strong>${esc(cand.verified_name)}</strong> <button class="ev-inline" data-inspect="${esc(cand.verified_name_source_id)}">${esc(cand.verified_name_source_id)}</button></div>` : ""}
+                  ${(cand && cand.declared_names || []).map(d => `<div class="sub-line">Declared: ${esc(d.name)} <button class="ev-inline" data-inspect="${esc(d.source_id)}">${esc(d.source_id)}</button></div>`).join("")}
+                </td>
+                <td class="ledger-op">${nameOp}</td>
+                <td>
+                  <div><strong>${esc(hitProf.primary_name)}</strong></div>
+                  ${hitProf.all_names.length > 1 ? `<div class="sub-line">Aliases: ${esc(hitProf.all_names.slice(1).join(" · "))}</div>` : ""}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Birth / Inc.</td>
+                <td>
+                  ${cand && cand.dob
+                    ? `<span class="tier-tag">${cand.dob_is_verified ? "T1 VERIFIED" : "T2 DECLARED"}</span><strong class="mono">${esc(cand.dob)}</strong> <button class="ev-inline" data-inspect="${esc(cand.dob_source_id)}">${esc(cand.dob_source_id)}</button>`
+                    : `<span style="color:var(--ink-4);">Not settled</span>`}
+                </td>
+                <td class="ledger-op">${dobOp}</td>
+                <td>
+                  ${hitProf.dobs && hitProf.dobs.length
+                    ? `<div class="mono"><strong>${esc(hitProf.dobs.join(", "))}</strong></div><div class="sub-line">${esc(wfStepNames[hitProf.dob_source] || hitProf.dob_source)}${hitProf.dob_detail ? ` · ${esc(hitProf.dob_detail)}` : ""}</div>`
+                    : `<span style="color:var(--ink-4);">None across 3-step waterfall</span>`}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Geography</td>
+                <td>
+                  ${(cand && cand.countries || []).length
+                    ? cand.countries.map(c => `<span style="margin-right:10px;${sharedSet.has(c.iso) ? "color:#fb7185;font-weight:600;" : ""}">${esc(c.name)} <span class="mono" style="color:var(--ink-3);">(${esc(c.iso)})</span></span>`).join("")
+                    : `<span style="color:var(--ink-4);">None settled</span>`}
+                </td>
+                <td class="ledger-op">${geoOp}</td>
+                <td>
+                  ${(hitProf.countries || []).length
+                    ? hitProf.countries.map(c => `<span style="margin-right:10px;${sharedSet.has(c.iso) ? "color:#fb7185;font-weight:600;" : ""}">${esc(c.name)} <span class="mono" style="color:var(--ink-3);">(${esc(c.iso)})</span></span>`).join("")
+                    : `<span style="color:var(--ink-4);">None listed</span>`}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Temporal</td>
+                <td>
+                  <span class="mono">Screened ${esc(detail.screened_at)}</span>
+                  ${facts.max_age_at_report !== null && facts.max_age_at_report !== undefined ? `<div class="sub-line">Max age at earliest report: <strong>${facts.max_age_at_report}</strong> (policy floor 16)</div>` : ""}
+                </td>
+                <td class="ledger-op">${tempOp}</td>
+                <td>
+                  ${hitProf.deceased_date ? `<div class="mono">Deceased: <strong>${esc(hitProf.deceased_date)}</strong></div>` : (hitProf.life_status ? `<div class="sub-line">Life status: ${esc(hitProf.life_status)} (no deceased_date)</div>` : "")}
+                  ${hitProf.earliest_report_date ? `<div class="mono">Earliest dated report: <strong>${esc(hitProf.earliest_report_date)}</strong></div>` : (!hitProf.deceased_date && !hitProf.life_status ? `<span style="color:var(--ink-4);">No dated report or death date</span>` : "")}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        ${shieldHtml}
+        ${notesHtml}
+
+        <!-- CUSTOMER SOURCE TRAIL -->
+        ${trailItems.length ? `
+          <section class="section-block" style="border-bottom:none;">
+            <div class="section-head">
+              <span class="kicker">RESOLVED CUSTOMER RECORD TRAIL (${trailItems.length})</span>
+              <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLICK TO INSPECT</span>
+            </div>
+            <div class="trail-list">
+              ${trailItems.map(it => `
+                <div class="trail-cell ${it.excl ? "excluded" : ""}" data-inspect="${esc(it.id)}">
+                  <div class="kicker" style="color:${it.excl ? "#f59e0b" : "var(--cobalt-bright)"};">${esc(it.tag)}</div>
+                  <div class="mono" style="font-size:12px;font-weight:600;color:var(--ink);margin-top:4px;">${esc(it.id)}</div>
+                  <div style="font-size:12px;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(it.title || "")}</div>
+                  <div class="sub-line">${esc(it.sub)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+        ` : ""}
+      </div>
+    `;
+
+    // Bind canvas click handlers
+    els.canvas.querySelectorAll("[data-inspect]").forEach(el => {
+      el.addEventListener("click", () => openSheet(detail, el.getAttribute("data-inspect")));
+    });
+    els.canvas.querySelectorAll("[data-cidx]").forEach(el => {
+      el.addEventListener("click", () => {
+        state.selectedCandidateIdx = parseInt(el.getAttribute("data-cidx"), 10) || 0;
+        renderCanvas(detail);
+      });
+    });
+  }
+
+  function openSheet(detail, recordId) {
+    if (recordId === "__OUTPUT__") {
+      state.sheetPayload = detail.output;
+      els.sheetKicker.textContent = "EMITTED JSONL RECORD";
+      els.sheetTitle.textContent = `${detail.output.hit_id} · ${detail.output.decision}`;
+      const lblBlock = detail.label
+        ? `<div class="kicker" style="margin:18px 0 8px;">GROUND-TRUTH / PRACTICE LABEL</div><pre class="code-block">${esc(JSON.stringify(detail.label, null, 2))}</pre>`
+        : "";
+      els.sheetBody.innerHTML = `<pre class="code-block">${esc(JSON.stringify(detail.output, null, 2))}</pre>${lblBlock}`;
+    } else {
+      const rec = detail.records_by_id && detail.records_by_id[recordId];
+      if (!rec) return;
+      state.sheetPayload = rec.data;
+      els.sheetKicker.textContent = rec.kind.toUpperCase();
+      els.sheetTitle.textContent = rec.id;
+      const entries = Object.entries(rec.data || {}).filter(([k]) => k !== "_tier_status");
+      const kv = entries.map(([k, v]) => `
+        <div class="sheet-k">${esc(k)}</div>
+        <div class="sheet-v">${v === null || v === undefined ? '<span style="color:var(--ink-4);">null</span>' : esc(typeof v === "object" ? JSON.stringify(v) : String(v))}</div>
+      `).join("");
+      els.sheetBody.innerHTML = `
+        <div class="sheet-kv">${kv}</div>
+        <div class="kicker" style="margin:16px 0 8px;">RAW JSON</div>
+        <pre class="code-block">${esc(JSON.stringify(rec.data, null, 2))}</pre>
       `;
-    }).join("");
-
-    return `
-      <div style="display:flex;flex-direction:column;gap:14px;">
-        <div>
-          <div class="card-title" style="margin-bottom:6px;">Watchlist Profile Notes (earliest dated "According to" reports highlighted)</div>
-          <div style="background:#0b1120;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.55;">
-            ${highlightProfileNotes(detail.hit_raw && detail.hit_raw.profile_notes)}
-          </div>
-        </div>
-        <div>
-          <div class="card-title" style="margin-bottom:6px;">
-            Anti-Namesake Search Shield (${(st.candidates || []).length} candidate(s) · Required phrase: "${esc(st.listing_phrase || "")}")
-          </div>
-          ${st.skip_reason ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">${esc(st.skip_reason)}</div>` : ""}
-          ${srRows ? `
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:120px;">Result ID</th>
-                  <th>Title & Snippet</th>
-                  <th style="width:165px;">Stage B Anchor Checks</th>
-                  <th style="width:200px;">Shield Outcome</th>
-                </tr>
-              </thead>
-              <tbody>${srRows}</tbody>
-            </table>
-          ` : `<div style="color:var(--text-muted);font-size:12px;">No Stage A search candidates matched hit names/aliases.</div>`}
-        </div>
-        <div>
-          <div class="card-title" style="margin-bottom:6px;">Raw Hit Record</div>
-          ${renderRecordCard("Watchlist Hit", detail.hit_raw.hit_id, detail.hit_raw)}
-        </div>
-      </div>
-    `;
-  }
-
-  function renderRawJsonTab(detail) {
-    const outStr = JSON.stringify(detail.output, null, 2);
-    const lblBlock = detail.label
-      ? `<div style="margin-top:12px;">
-           <div class="card-title" style="margin-bottom:6px;">Expected / Practice Label Reference</div>
-           <pre class="json-pre">${esc(JSON.stringify(detail.label, null, 2))}</pre>
-         </div>`
-      : "";
-    return `
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span class="card-title">Serialized JSONL Output Record</span>
-          <button id="copyJsonBtn">Copy JSON</button>
-        </div>
-        <pre class="json-pre">${esc(outStr)}</pre>
-        ${lblBlock}
-      </div>
-    `;
-  }
-
-  function focusRecord(id) {
-    if (!id) return;
-    state.focusedRecordId = id;
-    state.activeTab = "evidence";
-    const cacheKey = `${state.currentDataset}:${state.selectedHitId}`;
-    const detail = state.detailCache.get(cacheKey);
-    if (detail) {
-      renderInspector(detail);
-      const targetCard = els.inspectorPane.querySelector(`[data-record-card="${CSS.escape(id)}"]`);
-      if (targetCard) targetCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
+    els.sheetBackdrop.classList.add("open");
+    els.forensicSheet.classList.add("open");
   }
 
-  function bindInspectorEvents(detail) {
-    els.inspectorPane.querySelectorAll("[data-focus-id]").forEach(btn => {
-      btn.addEventListener("click", () => focusRecord(btn.getAttribute("data-focus-id")));
-    });
+  function closeSheet() {
+    els.sheetBackdrop.classList.remove("open");
+    els.forensicSheet.classList.remove("open");
+  }
 
-    els.inspectorPane.querySelectorAll(".tab-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.activeTab = btn.getAttribute("data-tab");
-        renderInspector(detail);
-      });
+  // ⌘K Command Palette
+  function openCmdk() {
+    els.cmdkOverlay.classList.add("open");
+    els.cmdkInput.value = "";
+    renderCmdkResults("");
+    els.cmdkInput.focus();
+  }
+  function closeCmdk() {
+    els.cmdkOverlay.classList.remove("open");
+  }
+  function renderCmdkResults(query) {
+    const q = query.trim().toLowerCase();
+    const actions = [];
+    state.datasets.forEach(d => {
+      if (!q || d.name.toLowerCase().includes(q) || d.id.includes(q)) {
+        actions.push({ kind: "DATASET", title: `Switch to ${d.name}`, sub: d.id, run: () => { els.datasetSelect.value = d.id; loadDataset(d.id); } });
+      }
     });
-
-    els.inspectorPane.querySelectorAll(".cand-row").forEach(row => {
-      row.addEventListener("click", () => {
-        state.selectedCandidateIdx = parseInt(row.getAttribute("data-cand-idx"), 10) || 0;
-        renderInspector(detail);
-      });
+    ["DIFFERENT_ENTITY", "SAME_ENTITY", "REVIEW", "AMBIGUOUS"].forEach(tag => {
+      if (!q || tag.toLowerCase().includes(q)) {
+        actions.push({
+          kind: "FILTER",
+          title: `Filter: ${tag}`,
+          sub: tag === "AMBIGUOUS" ? "Resolution status" : "Decision",
+          run: () => {
+            if (tag === "AMBIGUOUS") { state.filters.resStatus = "AMBIGUOUS"; els.resStatusFilter.value = "AMBIGUOUS"; }
+            else { state.filters.decision = tag; renderTopTelemetry(); }
+            applyFilters();
+          }
+        });
+      }
     });
-
-    const copyBtn = document.getElementById("copyJsonBtn");
-    if (copyBtn) {
-      copyBtn.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(JSON.stringify(detail.output));
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => { copyBtn.textContent = "Copy JSON"; }, 1200);
-        } catch (_) {
-          copyBtn.textContent = "Clipboard blocked";
-        }
+    if (state.summary) {
+      const matches = state.summary.hits.filter(h =>
+        !q || [h.hit_id, h.customer_name, h.hit_name, h.reason_code, h.customer_record_id || ""].join(" ").toLowerCase().includes(q)
+      ).slice(0, 10);
+      matches.forEach(h => {
+        actions.push({
+          kind: h.hit_id,
+          title: `${h.customer_name} ${decOp(h.decision)} ${h.hit_name}`,
+          sub: h.reason_code,
+          run: () => selectHit(h.hit_id),
+        });
       });
     }
+    els.cmdkResults.innerHTML = actions.map((a, idx) => `
+      <div class="cmdk-item" data-aidx="${idx}">
+        <div>
+          <span class="mono" style="font-size:11px;color:var(--cobalt-bright);margin-right:10px;">${esc(a.kind)}</span>
+          <span style="font-size:12.5px;color:var(--ink);">${esc(a.title)}</span>
+        </div>
+        <span class="mono" style="font-size:10.5px;color:var(--ink-3);">${esc(a.sub)}</span>
+      </div>
+    `).join("");
+    els.cmdkResults.querySelectorAll(".cmdk-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const a = actions[parseInt(item.getAttribute("data-aidx"), 10)];
+        closeCmdk();
+        if (a) a.run();
+      });
+    });
   }
 
-  // Event Listeners
+  // Event Wiring
   els.datasetSelect.addEventListener("change", e => loadDataset(e.target.value));
-  els.searchInput.addEventListener("input", e => {
-    state.filters.search = e.target.value;
-    applyFilters();
-  });
-  els.resStatusFilter.addEventListener("change", e => {
-    state.filters.resStatus = e.target.value;
-    applyFilters();
-  });
-  els.labeledOnlyChk.addEventListener("change", e => {
-    state.filters.labeledOnly = e.target.checked;
-    applyFilters();
-  });
-  els.resetFiltersBtn.addEventListener("click", () => {
+  els.searchInput.addEventListener("input", e => { state.filters.search = e.target.value; applyFilters(); });
+  els.reasonFilter.addEventListener("change", e => { state.filters.reasonCode = e.target.value; applyFilters(); });
+  els.resStatusFilter.addEventListener("change", e => { state.filters.resStatus = e.target.value; applyFilters(); });
+  els.labeledOnlyChk.addEventListener("change", e => { state.filters.labeledOnly = e.target.checked; applyFilters(); });
+  els.resetBtn.addEventListener("click", () => {
     state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
-    els.searchInput.value = "";
-    els.resStatusFilter.value = "ALL";
-    els.labeledOnlyChk.checked = false;
-    renderAnalytics();
-    applyFilters();
+    els.searchInput.value = ""; els.reasonFilter.value = "ALL"; els.resStatusFilter.value = "ALL"; els.labeledOnlyChk.checked = false;
+    renderTopTelemetry(); applyFilters();
   });
 
-  // Keyboard shortcuts
+  els.sheetBackdrop.addEventListener("click", closeSheet);
+  els.sheetCloseBtn.addEventListener("click", closeSheet);
+  els.sheetCopyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(state.sheetPayload, null, 2));
+      els.sheetCopyBtn.textContent = "COPIED ✓";
+      setTimeout(() => { els.sheetCopyBtn.textContent = "COPY JSON"; }, 1200);
+    } catch (_) {}
+  });
+
+  els.openCmdkBtn.addEventListener("click", openCmdk);
+  els.cmdkOverlay.addEventListener("click", e => { if (e.target === els.cmdkOverlay) closeCmdk(); });
+  els.cmdkInput.addEventListener("input", e => renderCmdkResults(e.target.value));
+
   document.addEventListener("keydown", e => {
-    if (e.key === "/" && document.activeElement !== els.searchInput) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
-      els.searchInput.focus();
+      els.cmdkOverlay.classList.contains("open") ? closeCmdk() : openCmdk();
       return;
+    }
+    if (e.key === "Escape") { closeCmdk(); closeSheet(); return; }
+    if (e.key === "/" && document.activeElement !== els.searchInput && !els.cmdkOverlay.classList.contains("open")) {
+      e.preventDefault(); els.searchInput.focus(); return;
     }
     if (document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
     if (!state.filteredHits.length) return;
