@@ -1,0 +1,32 @@
+"""Declarative rules, thresholds, reason codes, and precedence from POLICY.md."""
+
+from __future__ import annotations
+
+DECISION_DIFFERENT = "DIFFERENT_ENTITY"
+DECISION_SAME = "SAME_ENTITY"
+DECISION_REVIEW = "REVIEW"
+
+REASON_CODES_BY_DECISION: dict[str, tuple[str, ...]] = {
+    DECISION_DIFFERENT: (
+        "ENTITY_TYPE_MISMATCH",
+        "DECEASED",
+        "TEMPORAL_IMPOSSIBILITY",
+        "DOB_MISMATCH",
+        "NAME_MISMATCH_VERIFIED",
+        "LOCATION_MISMATCH",
+    ),
+    DECISION_SAME: (
+        "NAME_DOB_LOCATION_MATCH",
+        "NAME_DOB_MATCH",
+        "NAME_LOCATION_MATCH",
+    ),
+    DECISION_REVIEW: (
+        "INSUFFICIENT_DATA",
+        "AMBIGUOUS_CUSTOMER_RECORD",
+    ),
+}
+
+CLEARANCE_PRECEDENCE: tuple[str, ...] = REASON_CODES_BY_DECISION[DECISION_DIFFERENT]
+
+MIN_AGE_AT_REPORT_YEARS = 16
+DOB_YEAR_TOLERANCE_YEARS = 1
