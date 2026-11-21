@@ -17,7 +17,7 @@ from typing import Any
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 XAI_URL = "https://api.x.ai/v1/chat/completions"
 DEFAULT_MODEL = "google/gemini-2.5-flash"
-DEFAULT_XAI_MODEL = "grok-3-mini"
+DEFAULT_XAI_MODEL = "grok-4.20-0309-non-reasoning"
 DEFAULT_PROVIDER_BY_PREFIX = {
     "google/": ["Google"],
     "openai/": ["OpenAI"],
@@ -126,8 +126,9 @@ class OpenRouterClient:
                     break
 
         self._cache: dict[str, dict[str, Any] | None] = {}
+        self._inflight: dict[str, threading.Event] = {}
         self._cache_lock = threading.Lock()
-        self._bucket = _TokenBucket(rate_per_sec=8.0, capacity=8.0)
+        self._bucket = _TokenBucket(rate_per_sec=24.0, capacity=24.0)
         self._ssl_context = _build_ssl_context()
         self.stats = {
             "requests_total": 0,
@@ -140,7 +141,7 @@ class OpenRouterClient:
 
     def _cache_key(self, task_type: str, payload: dict[str, Any]) -> str:
         canon = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-        return hashlib.sha256(f"{task_type}|{canon}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{self.model}|{task_type}|{canon}".encode("utf-8")).hexdigest()
 
     def _call_structured(
         self,
@@ -154,10 +155,23 @@ class OpenRouterClient:
             return None
 
         key = self._cache_key(task_type, user_payload)
+        wait_evt: threading.Event | None = None
+        my_evt: threading.Event | None = None
         with self._cache_lock:
             if key in self._cache:
                 self.stats["cache_hits"] += 1
                 return self._cache[key]
+            if key in self._inflight:
+                wait_evt = self._inflight[key]
+            else:
+                my_evt = threading.Event()
+                self._inflight[key] = my_evt
+
+        if wait_evt is not None:
+            wait_evt.wait()
+            with self._cache_lock:
+                self.stats["cache_hits"] += 1
+                return self._cache.get(key)
 
         body: dict[str, Any] = {
             "model": self.model,
@@ -198,37 +212,46 @@ class OpenRouterClient:
         }
 
         parsed: dict[str, Any] | None = None
-        for attempt in range(self.max_retries + 1):
-            self._bucket.acquire()
-            self.stats["requests_total"] += 1
-            req = urllib.request.Request(
-                self.base_url, data=raw_bytes, headers=headers, method="POST"
-            )
-            try:
-                parsed = self._execute_request(req)
-                break
-            except _RetryableOpenRouterError as exc:
-                if attempt >= self.max_retries:
-                    self.stats["failures"] += 1
+        try:
+            for attempt in range(self.max_retries + 1):
+                self._bucket.acquire()
+                with self._cache_lock:
+                    self.stats["requests_total"] += 1
+                req = urllib.request.Request(
+                    self.base_url, data=raw_bytes, headers=headers, method="POST"
+                )
+                try:
+                    parsed = self._execute_request(req)
+                    break
+                except _RetryableOpenRouterError as exc:
+                    if attempt >= self.max_retries:
+                        with self._cache_lock:
+                            self.stats["failures"] += 1
+                        parsed = None
+                        break
+                    with self._cache_lock:
+                        self.stats["retries"] += 1
+                    # Handle strict provider slug rejection gracefully once if needed
+                    if exc.allow_provider_fallback and "provider" in body:
+                        if not body["provider"].get("allow_fallbacks", False):
+                            body["provider"]["allow_fallbacks"] = True
+                        else:
+                            body.pop("provider", None)
+                        raw_bytes = json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")
+                    backoff = min(20.0, (1.5 * (2**attempt)) + random.Random(attempt).uniform(0.0, 0.5))
+                    time.sleep(backoff)
+                except Exception:
+                    with self._cache_lock:
+                        self.stats["failures"] += 1
                     parsed = None
                     break
-                self.stats["retries"] += 1
-                # Handle strict provider slug rejection gracefully once if needed
-                if exc.allow_provider_fallback and "provider" in body:
-                    if not body["provider"].get("allow_fallbacks", False):
-                        body["provider"]["allow_fallbacks"] = True
-                    else:
-                        body.pop("provider", None)
-                    raw_bytes = json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")
-                backoff = min(20.0, (1.5 * (2**attempt)) + random.Random(attempt).uniform(0.0, 0.5))
-                time.sleep(backoff)
-            except Exception:
-                self.stats["failures"] += 1
-                parsed = None
-                break
-
-        with self._cache_lock:
-            self._cache[key] = parsed
+        finally:
+            with self._cache_lock:
+                self._cache[key] = parsed
+                if my_evt is not None:
+                    self._inflight.pop(key, None)
+            if my_evt is not None:
+                my_evt.set()
         return parsed
 
     def _execute_request(self, req: urllib.request.Request) -> dict[str, Any]:
@@ -260,8 +283,9 @@ class OpenRouterClient:
             raise _RetryableOpenRouterError("Invalid JSON HTTP body") from err
 
         usage = payload.get("usage") or {}
-        self.stats["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
-        self.stats["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+        with self._cache_lock:
+            self.stats["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+            self.stats["completion_tokens"] += int(usage.get("completion_tokens") or 0)
 
         choices = payload.get("choices") or []
         if not choices:

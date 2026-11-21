@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import threading
 from typing import Any
 
 from .models import Claim, HitProfile, PartialDate, TIER_2_DECLARED, TIER_3_CONTEXTUAL
@@ -64,6 +65,7 @@ class WatchlistResolver:
         self.search_shield = search_shield
         self.llm_client = llm_client
         self.verifier = verifier
+        self._stats_lock = threading.Lock()
         self.stats = {
             "hits_resolved": 0,
             "dobs_from_field": 0,
@@ -73,7 +75,8 @@ class WatchlistResolver:
         }
 
     def resolve_hit(self, hit: dict[str, Any]) -> HitProfile:
-        self.stats["hits_resolved"] += 1
+        with self._stats_lock:
+            self.stats["hits_resolved"] += 1
         hid = hit["hit_id"]
         etype = hit["entity_type"]
         is_comp = etype == "Company"
@@ -151,7 +154,8 @@ class WatchlistResolver:
             dob_source = "dobs_field"
             dob_evidence_ids = [hid]
             dob_detail = ", ".join(d.iso_str for d in dobs)
-            self.stats["dobs_from_field"] += 1
+            with self._stats_lock:
+                self.stats["dobs_from_field"] += 1
 
         # Step 2 (Individuals only): first paragraph of profile_notes
         if not dobs and not is_comp and pn.strip():
@@ -164,9 +168,10 @@ class WatchlistResolver:
                 dob_source = "profile_notes"
                 dob_evidence_ids = [hid]
                 dob_detail = detail_notes
-                self.stats["dobs_from_notes"] += 1
-                if used_llm:
-                    self.stats["dobs_from_notes_llm"] += 1
+                with self._stats_lock:
+                    self.stats["dobs_from_notes"] += 1
+                    if used_llm:
+                        self.stats["dobs_from_notes_llm"] += 1
 
         # Step 3 (Individuals only): search_results.jsonl via Anti-Namesake Search Shield
         if not dobs and not is_comp:
@@ -178,7 +183,8 @@ class WatchlistResolver:
                 dob_source = "search_results"
                 dob_evidence_ids = sr_ids
                 dob_detail = sr_detail
-                self.stats["dobs_from_search"] += 1
+                with self._stats_lock:
+                    self.stats["dobs_from_search"] += 1
 
         for d in dobs:
             claims.append(

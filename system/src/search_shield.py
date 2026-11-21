@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import threading
 from typing import Any
 
 from .ingest import DataStore
@@ -162,6 +163,7 @@ class SearchShield:
         self.store = store
         self.llm_client = llm_client
         self.verifier = verifier
+        self._stats_lock = threading.Lock()
         self.stats = {
             "hits_searched": 0,
             "snippets_matched": 0,
@@ -178,7 +180,8 @@ class SearchShield:
         if not hit_countries or not hit_names:
             return [], [], ""
 
-        self.stats["hits_searched"] += 1
+        with self._stats_lock:
+            self.stats["hits_searched"] += 1
         nm = self.store.name_matcher
         candidates: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
@@ -278,14 +281,16 @@ class SearchShield:
                         llm_res, snip, hit_names, hit_countries, listing_phrase
                     )
                     if verified:
-                        self.stats["snippets_llm"] += 1
+                        with self._stats_lock:
+                            self.stats["snippets_llm"] += 1
                         extracted_for_row.extend(verified)
                         detail_parts.append(
                             f"{' or '.join(d.iso_str for d in verified)} ({rid})"
                         )
 
             if extracted_for_row:
-                self.stats["snippets_matched"] += 1
+                with self._stats_lock:
+                    self.stats["snippets_matched"] += 1
                 used_sr_ids.append(rid)
                 for pd in extracted_for_row:
                     if pd not in possible_dobs:

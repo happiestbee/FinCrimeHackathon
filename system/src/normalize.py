@@ -223,6 +223,24 @@ class NameMatcher:
         parts_b = self.extract_name_parts(name_b, is_company=is_company)
         return self._parts_lists_agree(parts_a, parts_b)
 
+    def _split_pair_matches(self, single: str, p1: str, p2: str) -> bool:
+        """Return True when a single token legitimately matches adjacent split parts p1 + p2.
+
+        Any non-exact fuzzy split match must strictly reduce edit distance vs. matching either
+        fragment alone so a long token (e.g. 'logistics') cannot absorb an unrelated short tag ('st').
+        """
+        joined = p1 + p2
+        if not self.parts_match(single, joined):
+            return False
+        if single == joined:
+            return True
+        ga = self.variant_groups.get(single)
+        gb = self.variant_groups.get(joined)
+        if ga and gb and (ga & gb):
+            return True
+        d_joined = levenshtein(single, joined)
+        return d_joined < levenshtein(single, p1) and d_joined < levenshtein(single, p2)
+
     def _parts_lists_agree(self, parts_a: list[str], parts_b: list[str]) -> bool:
         m, n = len(parts_a), len(parts_b)
         if m == 0 or n == 0:
@@ -235,12 +253,11 @@ class NameMatcher:
             for j in range(n):
                 if self.parts_match(parts_a[i], parts_b[j]):
                     edges_for_a[i].append(((i,), (j,)))
-                if j + 1 < n and self.parts_match(parts_a[i], parts_b[j] + parts_b[j + 1]):
+                if j + 1 < n and self._split_pair_matches(parts_a[i], parts_b[j], parts_b[j + 1]):
                     edges_for_a[i].append(((i,), (j, j + 1)))
             if i + 1 < m:
-                joined_a = parts_a[i] + parts_a[i + 1]
                 for j in range(n):
-                    if self.parts_match(joined_a, parts_b[j]):
+                    if self._split_pair_matches(parts_b[j], parts_a[i], parts_a[i + 1]):
                         edges_for_a[i].append(((i, i + 1), (j,)))
 
         # Quick upper bound check: if total potential single/pair start indices < 1, fail

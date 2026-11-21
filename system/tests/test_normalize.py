@@ -61,8 +61,14 @@ class TestNormalize(unittest.TestCase):
         # "Abdulsalam" <-> "Abdul Salam" covers both tokens and counts as 1 matched part
         self.assertTrue(self.nm.names_agree("Abdulsalam", "Abdul Salam"))
         self.assertTrue(self.nm.names_agree("Abdulsalam Khan", "Abdul Salam Khan"))
+        # Legitimate fuzzy split/join still matches (edit distance strictly improves over either fragment)
+        self.assertTrue(self.nm.names_agree("Abdul Rahman", "Abdurehman"))
+        self.assertTrue(self.nm.names_agree("FAHRUR ROZI", "Fakhrurrozi"))
         # Must NOT double-count Abdul+Salam as 2 matches when surname differs!
         self.assertFalse(self.nm.names_agree("Abdulsalam Khan", "Abdul Salam Smith"))
+        # Long word must NOT swallow an adjacent short token (e.g. "st" + "logistics" != "logistics")
+        self.assertFalse(self.nm.names_agree("Starling Logistics Ltd", "ST Logistics (UK) Ltd.", is_company=True))
+        self.assertFalse(self.nm.names_agree("Starling Bank Ltd", "Starling FS Ltd", is_company=True))
 
     def test_unicode_transliteration_non_nfkd(self) -> None:
         self.assertEqual(fold_text("Paweł Łukasz"), "pawel lukasz")
@@ -106,6 +112,7 @@ class TestNormalize(unittest.TestCase):
         self.assertEqual(self.geo.normalize_structured_country("Taiwan"), "TW")
         self.assertEqual(self.geo.normalize_structured_country("Kosovo"), "XK")
         self.assertEqual(self.geo.normalize_structured_country("Palestina"), "PS")
+        self.assertEqual(self.geo.normalize_structured_country("Korea, Democratic People's Republic of"), "KP")
         self.assertIsNone(self.geo.normalize_structured_country("International"))
         self.assertIsNone(self.geo.normalize_structured_country("Europe"))
 

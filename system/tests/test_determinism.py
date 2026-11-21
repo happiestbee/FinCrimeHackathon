@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
 import sys
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.llm_client import OpenRouterClient
 from src.main import run_pipeline
 
 
@@ -99,6 +103,57 @@ class TestDeterminism(unittest.TestCase):
             self.assertEqual(lines[0]["reason_code"], "DOB_MISMATCH")
             self.assertEqual(lines[1]["decision"], "SAME_ENTITY")
             self.assertEqual(lines[1]["reason_code"], "NAME_DOB_LOCATION_MATCH")
+
+    def test_parallel_workers_and_single_flight_dedup(self) -> None:
+        # 1. Parallel workers match sequential run_pipeline byte-for-byte on sample_data
+        sample_dir = os.path.join(os.path.dirname(__file__), "sample_data")
+        if os.path.isdir(sample_dir):
+            with tempfile.TemporaryDirectory() as tmp:
+                seq_out = os.path.join(tmp, "seq.jsonl")
+                par_out = os.path.join(tmp, "par.jsonl")
+                c1 = OpenRouterClient(api_key="")
+                c1.api_key = ""
+                c1.enabled = False
+                c2 = OpenRouterClient(api_key="")
+                c2.api_key = ""
+                c2.enabled = False
+                run_pipeline(sample_dir, seq_out, llm_client=c1, max_workers=1)
+                run_pipeline(sample_dir, par_out, llm_client=c2, max_workers=8)
+                with open(seq_out, "rb") as f1, open(par_out, "rb") as f2:
+                    self.assertEqual(f1.read(), f2.read())
+
+        # 2. Single-flight deduplication executes 1 HTTP request for 6 concurrent identical prompts
+        client = OpenRouterClient(api_key="test-key", max_retries=0)
+
+        class SlowFakeResp:
+            def __init__(self, body: dict) -> None:
+                self._b = json.dumps(body).encode("utf-8")
+            def getcode(self) -> int:
+                return 200
+            def read(self) -> bytes:
+                return self._b
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+
+        payload = {"choices": [{"message": {"content": json.dumps({"lived_countries": []})}}]}
+
+        def slow_urlopen(*args, **kwargs):
+            time.sleep(0.05)
+            return SlowFakeResp(payload)
+
+        with patch("urllib.request.urlopen", side_effect=slow_urlopen):
+            with ThreadPoolExecutor(max_workers=6) as ex:
+                results = list(
+                    ex.map(
+                        lambda _: client.extract_residence_note("Customer visited Germany briefly."),
+                        range(6),
+                    )
+                )
+        self.assertTrue(all(r == {"lived_countries": []} for r in results))
+        self.assertEqual(client.stats["requests_total"], 1)
+        self.assertEqual(client.stats["cache_hits"], 5)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 import re
-from typing import Any
+import threading
+from typing import Any, Callable, TypeVar
 
 from .ingest import DataStore
 from .models import (
@@ -82,10 +83,16 @@ _STOP_UPPER_TOKENS = frozenset(
     {"DOB", "ID", "KYC", "USA", "UK", "UAE", "SUMSUB", "VERIFF", "PERSONA", "ONFIDO"}
 )
 
+_STRONG_RESIDENCE_CUE_RE = re.compile(
+    r"\b(?:liv(?:e|ed|ing)|resid(?:e|ed|ing|ence|ences|ent|ents|ential|ency)|"
+    r"dwell(?:ed|ing)?|household|housing|habitation|domicil(?:e|ed)|relocat(?:e|ed|ing)|moved\s+to)\b",
+    re.I,
+)
+
 _RESIDENCE_CUE_RE = re.compile(
     r"\b(?:liv(?:e|ed|ing)|resid(?:e|ed|ing|ence|ences|ent|ents|ential|ency)|"
     r"work(?:ed|ing|er|ers|force)?|employ(?:ed|ment|ee|ees)?|"
-    r"home|house|housing|household|dwell(?:ed|ing)?|occup(?:y|ied|ying)|"
+    r"home|house|housing|household|habitation|dwell(?:ed|ing)?|occup(?:y|ied|ying)|"
     r"bas(?:e|ed)|career|tenure|relocat(?:e|ed|ing)|stay(?:ed|ing)?|"
     r"spent\s+time|time\s+spent|domicil(?:e|ed)|domestic|personal\s+life|"
     r"private\s+life|life\s+and\s+labor|personal\s+ties|professional|"
@@ -98,6 +105,14 @@ _TRANSFER_ONLY_RE = re.compile(
     re.I,
 )
 
+_NOISE_CONTEXT_RE = re.compile(
+    r"\b(?:transfer|remittance|payment|paid|wire|sent\s+money|payee|merchant|hotel|holiday|vacation|card|employer|headquartered|branch)\b",
+    re.I,
+)
+
+
+_T = TypeVar("_T")
+
 
 class CustomerResolver:
     """Resolves alerts to customer PersonProfiles and mines KYC & residence notes."""
@@ -106,9 +121,13 @@ class CustomerResolver:
         self.store = store
         self.llm_client = llm_client
         self.verifier = verifier
+        self._lock = threading.Lock()
         self._alert_cache: dict[str, ResolvedAlert] = {}
+        self._alert_inflight: dict[str, threading.Event] = {}
         self._kyc_note_cache: dict[str, KycRecord] = {}
+        self._kyc_note_inflight: dict[str, threading.Event] = {}
         self._res_note_cache: dict[str, list[str]] = {}
+        self._res_note_inflight: dict[str, threading.Event] = {}
         self.stats = {
             "alerts_resolved": 0,
             "kyc_notes_parsed": 0,
@@ -117,12 +136,61 @@ class CustomerResolver:
             "res_notes_llm": 0,
         }
 
+    def _cached_single_flight(
+        self,
+        cache: dict[str, _T],
+        inflight: dict[str, threading.Event],
+        key: str,
+        compute_fn: Callable[[], _T],
+    ) -> _T:
+        wait_evt: threading.Event | None = None
+        my_evt: threading.Event | None = None
+        with self._lock:
+            if key in cache:
+                return cache[key]
+            if key in inflight:
+                wait_evt = inflight[key]
+            else:
+                my_evt = threading.Event()
+                inflight[key] = my_evt
+
+        if wait_evt is not None:
+            wait_evt.wait()
+            with self._lock:
+                return cache[key]
+
+        try:
+            result = compute_fn()
+        except BaseException:
+            with self._lock:
+                inflight.pop(key, None)
+            if my_evt is not None:
+                my_evt.set()
+            raise
+
+        with self._lock:
+            cache[key] = result
+            inflight.pop(key, None)
+        if my_evt is not None:
+            my_evt.set()
+        return result
+
+    def _inc_stat(self, stat_key: str) -> None:
+        with self._lock:
+            self.stats[stat_key] += 1
+
     def resolve_alert(self, alert: dict[str, Any]) -> ResolvedAlert:
         aid = alert["alert_id"]
-        if aid in self._alert_cache:
-            return self._alert_cache[aid]
+        return self._cached_single_flight(
+            self._alert_cache,
+            self._alert_inflight,
+            aid,
+            lambda: self._resolve_alert_uncached(alert),
+        )
 
-        self.stats["alerts_resolved"] += 1
+    def _resolve_alert_uncached(self, alert: dict[str, Any]) -> ResolvedAlert:
+        aid = alert["alert_id"]
+        self._inc_stat("alerts_resolved")
         screened = alert["customer"]
         link_sets: list[list[str]] = []
         if alert.get("account_ref"):
@@ -187,7 +255,6 @@ class CustomerResolver:
                         customer_record_id=profile.canonical_record_id,
                         candidates=[profile],
                     )
-                    self._alert_cache[aid] = res
                     return res
                 use_clusters = fitting if fitting else cluster_ids
                 profiles = [
@@ -204,7 +271,6 @@ class CustomerResolver:
                     customer_record_id="AMBIGUOUS",
                     candidates=profiles,
                 )
-                self._alert_cache[aid] = res
                 return res
 
             only_clid = cluster_ids[0]
@@ -219,7 +285,6 @@ class CustomerResolver:
                 customer_record_id=profile.canonical_record_id,
                 candidates=[profile],
             )
-            self._alert_cache[aid] = res
             return res
 
         # Unlinked alert: search CRM by Principle 2 screened criteria
@@ -232,7 +297,6 @@ class CustomerResolver:
                 customer_record_id=None,
                 candidates=[fallback_profile],
             )
-            self._alert_cache[aid] = res
             return res
 
         if len(matching_clusters) == 1:
@@ -244,7 +308,6 @@ class CustomerResolver:
                 customer_record_id=profile.canonical_record_id,
                 candidates=[profile],
             )
-            self._alert_cache[aid] = res
             return res
 
         profiles = [
@@ -257,7 +320,6 @@ class CustomerResolver:
             customer_record_id="AMBIGUOUS",
             candidates=profiles,
         )
-        self._alert_cache[aid] = res
         return res
 
     def _find_unlinked_clusters(self, screened: dict[str, Any]) -> list[str]:
@@ -670,24 +732,28 @@ class CustomerResolver:
 
     def parse_kyc_note(self, note: dict[str, Any]) -> KycRecord:
         nid = note["note_id"]
-        if nid in self._kyc_note_cache:
-            return self._kyc_note_cache[nid]
+        return self._cached_single_flight(
+            self._kyc_note_cache,
+            self._kyc_note_inflight,
+            nid,
+            lambda: self._parse_kyc_note_uncached(note),
+        )
 
-        self.stats["kyc_notes_parsed"] += 1
+    def _parse_kyc_note_uncached(self, note: dict[str, Any]) -> KycRecord:
+        nid = note["note_id"]
+        self._inc_stat("kyc_notes_parsed")
         text = note["text"]
         created_at = note.get("created_at") or ""
 
         has_neg = bool(_KYC_NEGATIVE_RE.search(text))
         has_pos = bool(_KYC_POSITIVE_RE.search(text))
         if has_neg and not has_pos:
-            rec = KycRecord(
+            return KycRecord(
                 source_id=nid,
                 source_kind="kyc_note",
                 checked_at=created_at,
                 result="rejected",
             )
-            self._kyc_note_cache[nid] = rec
-            return rec
 
         # Extract DOB via explicit DOB/born cue
         verified_dob: PartialDate | None = None
@@ -767,8 +833,7 @@ class CustomerResolver:
                     llm_res, text, nid, checked_at
                 )
                 if verified_rec is not None:
-                    self.stats["kyc_notes_llm"] += 1
-                    self._kyc_note_cache[nid] = verified_rec
+                    self._inc_stat("kyc_notes_llm")
                     return verified_rec
 
         if has_neg and has_pos:
@@ -791,7 +856,7 @@ class CustomerResolver:
             result = "approved" if contrast_ok else "rejected"
         else:
             result = "rejected" if has_neg else "approved"
-        rec = KycRecord(
+        return KycRecord(
             source_id=nid,
             source_kind="kyc_note",
             checked_at=checked_at,
@@ -800,38 +865,38 @@ class CustomerResolver:
             verified_dob=verified_dob,
             document_country=doc_country,
         )
-        self._kyc_note_cache[nid] = rec
-        return rec
 
     def parse_residence_note(self, note: dict[str, Any]) -> list[str]:
         nid = note["note_id"]
-        if nid in self._res_note_cache:
-            return self._res_note_cache[nid]
+        return self._cached_single_flight(
+            self._res_note_cache,
+            self._res_note_inflight,
+            nid,
+            lambda: self._parse_residence_note_uncached(note),
+        )
 
-        self.stats["res_notes_parsed"] += 1
+    def _parse_residence_note_uncached(self, note: dict[str, Any]) -> list[str]:
+        self._inc_stat("res_notes_parsed")
         text = note["text"]
         countries = self.store.geo.extract_countries_from_prose(text)
         if not countries:
-            self._res_note_cache[nid] = []
             return []
 
-        has_res_cue = bool(_RESIDENCE_CUE_RE.search(text))
+        has_strong = bool(_STRONG_RESIDENCE_CUE_RE.search(text))
+        has_noise = bool(_NOISE_CONTEXT_RE.search(text))
+        has_res_cue = has_strong or (bool(_RESIDENCE_CUE_RE.search(text)) and not has_noise)
         if has_res_cue:
-            self._res_note_cache[nid] = countries
             return countries
 
-        # If note mentions a country without recognized residence words, trigger LLM verifier if available
-        if self.llm_client is not None and self.llm_client.enabled and not _TRANSFER_ONLY_RE.search(text):
+        # If note mentions a country ambiguously or alongside transaction/noise terms, verify via LLM
+        if self.llm_client is not None and self.llm_client.enabled and (
+            not _TRANSFER_ONLY_RE.search(text) or bool(_RESIDENCE_CUE_RE.search(text))
+        ):
             llm_res = self.llm_client.extract_residence_note(text)
             if llm_res and self.verifier:
-                self.stats["res_notes_llm"] += 1
-                verified_countries = self.verifier.verify_residence_note_extraction(
-                    llm_res, text
-                )
-                self._res_note_cache[nid] = verified_countries
-                return verified_countries
+                self._inc_stat("res_notes_llm")
+                return self.verifier.verify_residence_note_extraction(llm_res, text)
 
-        self._res_note_cache[nid] = []
         return []
 
 

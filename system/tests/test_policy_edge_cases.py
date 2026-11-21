@@ -487,7 +487,7 @@ class TestPolicyEdgeCases(unittest.TestCase):
             self.assertTrue(c.enabled)
             self.assertEqual(c.backend, "xai")
             self.assertEqual(c.base_url, "https://api.x.ai/v1/chat/completions")
-            self.assertEqual(c.model, "grok-3-mini")
+            self.assertEqual(c.model, "grok-4.20-0309-non-reasoning")
             self.assertEqual(c.provider_order, [])
 
 

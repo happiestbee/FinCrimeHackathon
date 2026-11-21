@@ -44,22 +44,22 @@ A zero-dependency Python 3 neuro-symbolic entity resolution system implementing 
 
 ```text
 system/
-├── run                       # Executable POSIX wrapper: python3 -m src.main "$@"
+├── run                       # Executable pure Python runner: system/run <data> <output>
 ├── README.md                 # System documentation and case walkthroughs
 ├── src/
-│   ├── main.py               # CLI entry point, orchestration, atomic temp-file write
+│   ├── main.py               # CLI entry point, concurrent alert/hit orchestration, atomic write
 │   ├── models.py             # Shared contracts: PartialDate, Claim, PersonProfile, HitProfile
 │   ├── normalize.py          # Unicode folding, Principle 8 names, ISO geo/territories, dates
 │   ├── ingest.py             # JSONL ingestion, hash maps, inverted indexes, Union-Find clusters
 │   ├── customer_resolver.py  # Direct/unlinked lookup, note mining, verified-over-declared merge
 │   ├── watchlist_resolver.py # 3-step DOB waterfall, dated reports, territories, company rules
 │   ├── search_shield.py      # Two-stage namesake filter (listing phrase + country anchor)
-│   ├── llm_client.py         # Provider-pinned OpenRouter stdlib client, SHA-256 cache, retries
+│   ├── llm_client.py         # Provider-pinned OpenRouter stdlib client, single-flight cache, retries
 │   ├── verifier.py           # Verbatim-quote, subject-attribution, and math entailment gate
 │   ├── policy_spec.py        # Declarative thresholds, reason codes, and precedence order
 │   ├── policy_engine.py      # Deterministic evaluator, AMBIGUOUS aggregator, evidence pruner
 │   └── proof_narrator.py     # Factual 2–4 sentence template compiler
-└── tests/                    # Zero-dependency unittest suite (23 tests)
+└── tests/                    # Zero-dependency unittest suite (26 tests)
 ```
 
 ---
@@ -104,7 +104,7 @@ For `AMBIGUOUS` alerts (Principle 3), each fitting person cluster is evaluated i
 - **Trigger-Gated, Verified LLM Fallback (`llm_client.py`, `verifier.py`):** OpenRouter is called only when `OPENROUTER_API_KEY` is set and a triggered free-text record fails deterministic parsing.
   - **Model & Pinning:** `google/gemini-2.5-flash` (overridable via `OPENROUTER_MODEL`), pinned with `provider: {"order": ["Google"], "require_parameters": true, "allow_fallbacks": false}`, `temperature: 0`, `top_p: 1`, `seed: 42`, and `response_format: {"type": "json_schema", "strict": true}`.
   - **Prompts & Schemas:** Four narrow extraction-only JSON schemas (`kyc_note_extraction`, `residence_note_extraction`, `hit_dob_extraction`, `search_dob_extraction`) requiring an exact `verbatim_quote` and (for watchlist prose) `about_subject` + `subject_name_in_quote`.
-  - **Verification Gate & Retries:** `ExtractionVerifier` rejects any claim whose quote is not a substring of the source, whose subject does not match the hit, or whose stated integers do not appear in the quote; birth-year intervals `[Y - A - 1, Y - A]` are computed strictly in Python. `OpenRouterClient` uses a thread-safe SHA-256 request cache, token-bucket rate limiter, 60s socket timeout, and exponential-backoff retries across HTTP `429`/`5xx`, timeouts, malformed JSON, and HTTP 200 `content: null` responses.
+  - **Verification Gate & Concurrency:** `ExtractionVerifier` rejects any claim whose quote is not a substring of the source, whose subject does not match the hit, or whose stated integers do not appear in the quote; birth-year intervals `[Y - A - 1, Y - A]` are computed strictly in Python. When an API key is active, `run_pipeline` resolves alerts and hits concurrently via `ThreadPoolExecutor` (`LLM_WORKERS=12`) with single-flight SHA-256 deduplication (`threading.Event`), token-bucket rate limiting, OS CA certificate fallback, 60s socket timeout, and exponential-backoff retries across HTTP `429`/`5xx`, timeouts, malformed JSON, and HTTP 200 `content: null` responses, while evaluating and emitting predictions in deterministic input order.
 
 ### Performance & Cost
 - **Dev Set (`819` hits, `72,265` customers, `31,895` notes, `16,882` search results):**

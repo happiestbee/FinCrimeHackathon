@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import json
 import os
@@ -26,6 +27,7 @@ def run_pipeline(
     output_file: str,
     llm_client=None,
     verifier=None,
+    max_workers: int | None = None,
 ) -> dict:
     """Execute full screening resolution over data_dir and atomically write JSONL to output_file."""
     t0 = time.monotonic()
@@ -41,14 +43,48 @@ def run_pipeline(
     )
     engine = PolicyEngine(store.name_matcher, store.geo)
 
+    if max_workers is not None:
+        workers = max(1, max_workers)
+    elif llm_client.enabled:
+        try:
+            workers = max(1, min(16, int(os.environ.get("LLM_WORKERS", "12"))))
+        except ValueError:
+            workers = 12
+    else:
+        workers = 1
+
+    if workers > 1 and len(store.hits) > 1:
+        unique_alerts = {
+            h["alert_id"]: store.alerts_by_id[h["alert_id"]] for h in store.hits
+        }
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            alert_futures = {
+                aid: executor.submit(customer_resolver.resolve_alert, alert)
+                for aid, alert in unique_alerts.items()
+            }
+            hit_futures = [
+                executor.submit(watchlist_resolver.resolve_hit, hit)
+                for hit in store.hits
+            ]
+            resolved_pairs = [
+                (alert_futures[hit["alert_id"]].result(), hf.result())
+                for hit, hf in zip(store.hits, hit_futures)
+            ]
+    else:
+        resolved_pairs = [
+            (
+                customer_resolver.resolve_alert(store.alerts_by_id[hit["alert_id"]]),
+                watchlist_resolver.resolve_hit(hit),
+            )
+            for hit in store.hits
+        ]
+
     decisions_counter: Counter[str] = Counter()
     reason_counter: Counter[str] = Counter()
     results_lines: list[str] = []
 
-    for hit in store.hits:
+    for hit, (resolved_alert, hit_profile) in zip(store.hits, resolved_pairs):
         alert = store.alerts_by_id[hit["alert_id"]]
-        resolved_alert = customer_resolver.resolve_alert(alert)
-        hit_profile = watchlist_resolver.resolve_hit(hit)
         screened_pd = parse_partial_date(alert.get("screened_at"), day_first=True)
         screened_dt = screened_pd.latest if screened_pd is not None else date.today()
 

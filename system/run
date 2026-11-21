@@ -1,4 +1,21 @@
-#!/usr/bin/env sh
-set -eu
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-exec env PYTHONPATH="$SCRIPT_DIR" python3 -m src.main "$@"
+#!/usr/bin/env python3
+"""Cross-platform CLI entry point: system/run <data_folder> <output_file>."""
+
+from __future__ import annotations
+
+import os
+import sys
+
+
+def main() -> int:
+    system_dir = os.path.dirname(os.path.abspath(__file__))
+    if system_dir not in sys.path:
+        sys.path.insert(0, system_dir)
+
+    from src.main import main as cli_main
+
+    return cli_main()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
