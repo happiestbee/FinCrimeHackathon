@@ -61,11 +61,25 @@ def load_dotenv_if_present() -> None:
         pass
 
 
+def _first_existing_dir(candidates: list[Path]) -> Path | None:
+    for path in candidates:
+        if (path / "hits.jsonl").exists():
+            return path
+    return None
+
+
 def discover_datasets() -> list[dict[str, Any]]:
     datasets: list[dict[str, Any]] = []
+    workspace_parent = REPO_ROOT.parent
 
-    sample_dir = SYSTEM_DIR / "tests" / "sample_data"
-    if (sample_dir / "hits.jsonl").exists():
+    sample_dir = _first_existing_dir(
+        [
+            SYSTEM_DIR / "tests" / "sample_data",
+            workspace_parent / "sample_data" / "sample_data",
+            workspace_parent / "sample_data",
+        ]
+    )
+    if sample_dir is not None:
         datasets.append(
             {
                 "id": "sample",
@@ -78,8 +92,13 @@ def discover_datasets() -> list[dict[str, Any]]:
             }
         )
 
-    adv_dir = SYSTEM_DIR / "tests" / "adversarial"
-    if (adv_dir / "hits.jsonl").exists():
+    adv_dir = _first_existing_dir(
+        [
+            SYSTEM_DIR / "tests" / "adversarial",
+            workspace_parent / "screening-track" / "screening" / "adversarial",
+        ]
+    )
+    if adv_dir is not None:
         datasets.append(
             {
                 "id": "adversarial",
@@ -92,8 +111,13 @@ def discover_datasets() -> list[dict[str, Any]]:
             }
         )
 
-    dev_dir = REPO_ROOT / "data" / "screening" / "dev"
-    if (dev_dir / "hits.jsonl").exists():
+    dev_dir = _first_existing_dir(
+        [
+            REPO_ROOT / "data" / "screening" / "dev",
+            workspace_parent / "screening-track" / "screening" / "dev",
+        ]
+    )
+    if dev_dir is not None:
         datasets.append(
             {
                 "id": "dev",
@@ -109,22 +133,198 @@ def discover_datasets() -> list[dict[str, Any]]:
     return datasets
 
 
+def _clip_excerpt(text: str, quote: str = "", max_len: int = 230) -> tuple[str, str]:
+    """Return a clean single-paragraph excerpt containing `quote` when present."""
+    clean = " ".join((text or "").split())
+    if not clean:
+        return "", ""
+    q = " ".join((quote or "").split())
+    if len(clean) <= max_len:
+        if q and q.lower() in clean.lower():
+            idx = clean.lower().find(q.lower())
+            return clean, clean[idx : idx + len(q)]
+        return clean, ""
+
+    if q:
+        idx = clean.lower().find(q.lower())
+        if idx != -1:
+            exact_q = clean[idx : idx + len(q)]
+            margin = max(24, (max_len - len(exact_q)) // 2)
+            start = max(0, idx - margin)
+            end = min(len(clean), idx + len(exact_q) + margin)
+            if start > 0:
+                sp = clean.find(" ", start)
+                if sp != -1 and sp < idx:
+                    start = sp + 1
+            if end < len(clean):
+                sp = clean.rfind(" ", idx + len(exact_q), end)
+                if sp != -1 and sp > idx + len(exact_q):
+                    end = sp
+            prefix = "… " if start > 0 else ""
+            suffix = " …" if end < len(clean) else ""
+            return f"{prefix}{clean[start:end]}{suffix}", exact_q
+
+    cut = clean.rfind(" ", 0, max_len)
+    if cut < max_len // 2:
+        cut = max_len
+    return f"{clean[:cut]} …", ""
+
+
+class TracingLLMClient(OpenRouterClient):
+    """OpenRouter/xAI client subclass that records real prompt/extraction telemetry for UI playback."""
+
+    def __init__(self, *args: Any, on_trace: Any = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._trace_lock = threading.Lock()
+        self._seen_trace_keys: set[str] = set()
+        self.trace_events: list[dict[str, Any]] = []
+        self._on_trace = on_trace
+
+    def _record_trace(
+        self,
+        channel: str,
+        agent_role: str,
+        raw_text: str,
+        matched: bool,
+        quote: str,
+        badge: str | None,
+        record_id: str | None = None,
+    ) -> None:
+        excerpt, resolved_quote = _clip_excerpt(raw_text, quote if matched else "")
+        if not excerpt:
+            return
+        if matched and not resolved_quote:
+            matched = False
+            badge = None
+        dedup_key = f"{channel}|{excerpt[:120]}"
+        with self._trace_lock:
+            if dedup_key in self._seen_trace_keys:
+                return
+            self._seen_trace_keys.add(dedup_key)
+            evt = {
+                "id": f"llm-{len(self.trace_events) + 1}",
+                "channel": channel,
+                "agent_role": agent_role,
+                "source_mode": "LLM",
+                "record_id": record_id or channel,
+                "text": excerpt,
+                "matched": bool(matched and resolved_quote),
+                "highlight_quote": resolved_quote if matched else "",
+                "badge": badge if matched else None,
+            }
+            self.trace_events.append(evt)
+        if self._on_trace is not None:
+            self._on_trace(evt)
+
+    def extract_kyc_note(self, note_text: str) -> dict[str, Any] | None:
+        res = super().extract_kyc_note(note_text)
+        matched = False
+        quote = ""
+        badge = None
+        if isinstance(res, dict):
+            quote = str(res.get("verbatim_quote") or "")
+            status = str(res.get("status") or "unknown").lower()
+            parts: list[str] = []
+            if status in ("approved", "rejected", "expired"):
+                parts.append(status.upper())
+            if res.get("verified_dob"):
+                parts.append(f"DOB {res['verified_dob']}")
+            elif res.get("document_country"):
+                parts.append(str(res["document_country"]))
+            elif res.get("verified_name"):
+                parts.append("NAME VERIFIED")
+            if quote and (parts or status != "unknown"):
+                matched = True
+                badge = " · ".join(parts[:2]) or "KYC EXTRACTED"
+        self._record_trace("KYC_NOTE", "Grok · KYC Reader", note_text, matched, quote, badge, "KYC NOTE")
+        return res
+
+    def extract_residence_note(self, note_text: str) -> dict[str, Any] | None:
+        res = super().extract_residence_note(note_text)
+        matched = False
+        quote = ""
+        badge = None
+        if isinstance(res, dict):
+            lived = res.get("lived_countries") or []
+            if isinstance(lived, list) and lived:
+                first = lived[0] if isinstance(lived[0], dict) else {}
+                quote = str(first.get("verbatim_quote") or "")
+                countries = [str(item.get("country")) for item in lived if isinstance(item, dict) and item.get("country")]
+                if quote and countries:
+                    matched = True
+                    badge = "LIVED · " + ", ".join(countries[:2])
+        self._record_trace("RESIDENCE_NOTE", "Grok · Geo Miner", note_text, matched, quote, badge, "NOTE PROSE")
+        return res
+
+    def extract_hit_first_para_dob(
+        self, paragraph: str, hit_names: list[str]
+    ) -> dict[str, Any] | None:
+        res = super().extract_hit_first_para_dob(paragraph, hit_names)
+        matched = False
+        quote = ""
+        badge = None
+        if isinstance(res, dict) and res.get("about_subject") is True:
+            quote = str(res.get("verbatim_quote") or "")
+            if quote and res.get("birth_date"):
+                matched = True
+                badge = f"DOB · {res['birth_date']}"
+            elif quote and res.get("age") is not None and res.get("event_year") is not None:
+                matched = True
+                badge = f"AGE {res['age']} @ {res['event_year']}"
+        self._record_trace("WATCHLIST_BIO", "Grok · Bio Reader", paragraph, matched, quote, badge, "HIT BIO")
+        return res
+
+    def extract_search_snippet_dob(
+        self,
+        snippet: str,
+        hit_names: list[str],
+        listing_phrase: str,
+        hit_countries: list[str],
+    ) -> dict[str, Any] | None:
+        res = super().extract_search_snippet_dob(snippet, hit_names, listing_phrase, hit_countries)
+        matched = False
+        quote = ""
+        badge = None
+        if isinstance(res, dict) and res.get("about_subject") is True:
+            quote = str(res.get("verbatim_quote") or "")
+            if quote and res.get("birth_date"):
+                matched = True
+                badge = f"WEB DOB · {res['birth_date']}"
+            elif quote and res.get("age") is not None and res.get("event_year") is not None:
+                matched = True
+                badge = f"WEB AGE {res['age']} @ {res['event_year']}"
+        self._record_trace("SEARCH_SNIPPET", "Grok · Web Shield", snippet, matched, quote, badge, "SEARCH")
+        return res
+
+
 class DatasetSession:
     """In-memory resolved pipeline session for one screening dataset directory."""
 
-    def __init__(self, spec: dict[str, Any], offline: bool = False) -> None:
+    def __init__(
+        self,
+        spec: dict[str, Any],
+        offline: bool = False,
+        progress_cb: Any = None,
+    ) -> None:
         self.spec = spec
         self.id = spec["id"]
         self.name = spec["name"]
         t0 = time.monotonic()
 
         self.store = DataStore(spec["data_dir"])
+        if progress_cb:
+            progress_cb(0, len(self.store.hits), 0, None)
+
+        def _on_llm_trace(evt: dict[str, Any]) -> None:
+            if progress_cb:
+                progress_cb(None, len(self.store.hits), None, evt)
+
         if offline:
-            llm_client = OpenRouterClient(api_key="")
+            llm_client = TracingLLMClient(api_key="", on_trace=_on_llm_trace)
             llm_client.api_key = ""
             llm_client.enabled = False
         else:
-            llm_client = OpenRouterClient()
+            llm_client = TracingLLMClient(on_trace=_on_llm_trace)
         verifier = ExtractionVerifier(self.store.name_matcher, self.store.geo)
         self.customer_resolver = CustomerResolver(
             self.store, llm_client=llm_client, verifier=verifier
@@ -185,18 +385,33 @@ class DatasetSession:
                     executor.submit(self.watchlist_resolver.resolve_hit, hit)
                     for hit in self.store.hits
                 ]
-                resolved_pairs = [
-                    (alert_futures[hit["alert_id"]].result(), hf.result())
-                    for hit, hf in zip(self.store.hits, hit_futures)
-                ]
+                resolved_pairs = []
+                for idx, (hit, hf) in enumerate(zip(self.store.hits, hit_futures), 1):
+                    res_alert = alert_futures[hit["alert_id"]].result()
+                    hit_prof = hf.result()
+                    resolved_pairs.append((res_alert, hit_prof))
+                    if progress_cb and (idx % 20 == 0 or idx == len(self.store.hits)):
+                        live_evt = self._scan_event_from_hit(hit, res_alert, hit_prof)
+                        progress_cb(
+                            idx,
+                            len(self.store.hits),
+                            llm_client.stats.get("requests_total", 0),
+                            live_evt,
+                        )
         else:
-            resolved_pairs = [
-                (
-                    self.customer_resolver.resolve_alert(self.store.alerts_by_id[hit["alert_id"]]),
-                    self.watchlist_resolver.resolve_hit(hit),
-                )
-                for hit in self.store.hits
-            ]
+            resolved_pairs = []
+            for idx, hit in enumerate(self.store.hits, 1):
+                res_alert = self.customer_resolver.resolve_alert(self.store.alerts_by_id[hit["alert_id"]])
+                hit_prof = self.watchlist_resolver.resolve_hit(hit)
+                resolved_pairs.append((res_alert, hit_prof))
+                if progress_cb and (idx % 20 == 0 or idx == len(self.store.hits)):
+                    live_evt = self._scan_event_from_hit(hit, res_alert, hit_prof)
+                    progress_cb(
+                        idx,
+                        len(self.store.hits),
+                        llm_client.stats.get("requests_total", 0),
+                        live_evt,
+                    )
 
         for hit, (resolved_alert, hit_profile) in zip(self.store.hits, resolved_pairs):
             hid = hit["hit_id"]
@@ -275,6 +490,7 @@ class DatasetSession:
             "model": llm_client.model if llm_client.enabled else None,
             "stats": dict(llm_client.stats),
         }
+        self.swarm_traces = self._curate_swarm_traces(llm_client)
         self.summary_payload = {
             "dataset": {
                 "id": self.id,
@@ -293,8 +509,231 @@ class DatasetSession:
             "reason_counts": dict(reason_counts.most_common()),
             "resolution_counts": dict(resolution_counts),
             "label_stats": self.label_stats,
+            "swarm_traces": self.swarm_traces,
             "hits": self.summary_hits,
         }
+
+    def _find_dob_quote_in_prose(self, text: str) -> str:
+        import re as _re
+
+        for pat in (
+            r"\bborn\s+(?:on\s+|in\s+)?[^\.;,\n]{4,32}",
+            r"(?i)\b(?:DOB|date\s+of\s+birth)\s*[:=]?\s*[^\n;]{4,28}",
+            r"(?i)\baged?\s+\d{2}\b[^.\n]{0,45}\b(?:19|20)\d{2}\b",
+            r"(?i)\b(?:at\s+(?:the\s+age\s+of\s+)?)?\d{2}\s*-?\s*years?\s*-?\s*old\b[^.\n]{0,45}\b(?:19|20)\d{2}\b",
+            r"(?-i:[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){0,3}\s*(?:,\s*\d{2}\s*,|\(\d{2}\)))",
+            r"\b(?:19|20)\d{2}[-/]\d{2}[-/]\d{2}\b",
+        ):
+            m = _re.search(pat, text)
+            if m:
+                return m.group(0).strip()
+        return ""
+
+    def _scan_event_from_hit(
+        self,
+        hit: dict[str, Any],
+        resolved_alert: Any,
+        hit_profile: Any,
+    ) -> dict[str, Any] | None:
+        hid = hit["hit_id"]
+        pn = (hit.get("profile_notes") or "").strip()
+        if hit_profile.dob_source == "profile_notes" and pn:
+            first_para = pn.split("\n\n")[0].strip()
+            quote = self._find_dob_quote_in_prose(first_para)
+            excerpt, resolved_q = _clip_excerpt(first_para, quote)
+            if excerpt:
+                return {
+                    "id": f"scan-{hid}",
+                    "channel": "WATCHLIST_BIO",
+                    "agent_role": "Rule · Bio Scanner",
+                    "source_mode": "SCAN",
+                    "record_id": hid,
+                    "text": excerpt,
+                    "matched": bool(resolved_q),
+                    "highlight_quote": resolved_q,
+                    "badge": f"DOB · {hit_profile.dobs[0].iso_str}" if (resolved_q and hit_profile.dobs) else None,
+                }
+        if hit_profile.dob_source == "search_results" and hit_profile.dob_evidence_ids:
+            sr_id = hit_profile.dob_evidence_ids[0]
+            sr_row = self.sr_by_id.get(sr_id)
+            if sr_row and sr_row.get("snippet"):
+                quote = self._find_dob_quote_in_prose(sr_row["snippet"])
+                excerpt, resolved_q = _clip_excerpt(sr_row["snippet"], quote)
+                if excerpt:
+                    return {
+                        "id": f"scan-{sr_id}",
+                        "channel": "SEARCH_SNIPPET",
+                        "agent_role": "Shield · Web Scanner",
+                        "source_mode": "SCAN",
+                        "record_id": sr_id,
+                        "text": excerpt,
+                        "matched": bool(resolved_q),
+                        "highlight_quote": resolved_q,
+                        "badge": f"WEB DOB · {hit_profile.dobs[0].iso_str}" if (resolved_q and hit_profile.dobs) else None,
+                    }
+        for cand in resolved_alert.candidates:
+            for cl in cand.claims:
+                if cl.attribute == "RESIDENCE_HISTORICAL" and cl.raw_value:
+                    cname = self.store.geo.display_name(cl.normalized_value)
+                    excerpt, resolved_q = _clip_excerpt(cl.raw_value, cname)
+                    if excerpt:
+                        return {
+                            "id": f"scan-{cl.source_id}",
+                            "channel": "RESIDENCE_NOTE",
+                            "agent_role": "Rule · Geo Scanner",
+                            "source_mode": "SCAN",
+                            "record_id": cl.source_id,
+                            "text": excerpt,
+                            "matched": bool(resolved_q),
+                            "highlight_quote": resolved_q,
+                            "badge": f"RESIDENCE · {cl.normalized_value}" if resolved_q else None,
+                        }
+        if pn:
+            first_para = pn.split("\n\n")[0].strip()
+            excerpt, _ = _clip_excerpt(first_para, "")
+            if excerpt:
+                return {
+                    "id": f"scan-empty-{hid}",
+                    "channel": "WATCHLIST_BIO",
+                    "agent_role": "Rule · Bio Scanner",
+                    "source_mode": "SCAN",
+                    "record_id": hid,
+                    "text": excerpt,
+                    "matched": False,
+                    "highlight_quote": "",
+                    "badge": None,
+                }
+        return None
+
+    def _curate_swarm_traces(self, llm_client: TracingLLMClient) -> list[dict[str, Any]]:
+        """Build up to 6 genuine reading traces mixing highlights and no-signal scans."""
+        llm_matched = [e for e in llm_client.trace_events if e["matched"]]
+        llm_empty = [e for e in llm_client.trace_events if not e["matched"]]
+
+        scan_matched: list[dict[str, Any]] = []
+        scan_empty: list[dict[str, Any]] = []
+        seen_texts: set[str] = {e["text"] for e in llm_client.trace_events}
+
+        def _push(target: list[dict[str, Any]], evt: dict[str, Any] | None) -> None:
+            if evt is None or not evt.get("text") or evt["text"] in seen_texts:
+                return
+            seen_texts.add(evt["text"])
+            target.append(evt)
+
+        for hid, cached in self.hit_cache.items():
+            if len(scan_matched) >= 6:
+                break
+            evt = self._scan_event_from_hit(cached["hit"], cached["resolved_alert"], cached["hit_profile"])
+            if evt and evt["matched"]:
+                _push(scan_matched, evt)
+
+        for note in self.store.notes:
+            if len(scan_matched) >= 6 and len(scan_empty) >= 4:
+                break
+            txt = (note.get("text") or "").strip()
+            if not txt:
+                continue
+            nid = note["note_id"]
+            if note.get("channel") == "kyc" and len(scan_matched) < 6:
+                kr = self.customer_resolver.parse_kyc_note(note)
+                quote = ""
+                if kr.verified_dob:
+                    quote = self._find_dob_quote_in_prose(txt) or (kr.verified_dob.raw or kr.verified_dob.iso_str)
+                if not quote:
+                    import re as _re
+                    m = _re.search(r"(?i)\b(?:approved|verified|rejected|expired|declined|failed)\b", txt)
+                    if m:
+                        quote = m.group(0)
+                excerpt, resolved_q = _clip_excerpt(txt, quote)
+                if resolved_q:
+                    _push(
+                        scan_matched,
+                        {
+                            "id": f"scan-{nid}",
+                            "channel": "KYC_NOTE",
+                            "agent_role": "Rule · KYC Scanner",
+                            "source_mode": "SCAN",
+                            "record_id": nid,
+                            "text": excerpt,
+                            "matched": True,
+                            "highlight_quote": resolved_q,
+                            "badge": f"KYC · {kr.result.upper()}",
+                        },
+                    )
+            elif note.get("channel") != "kyc" and len(scan_empty) < 4:
+                countries = self.customer_resolver.parse_residence_note(note)
+                if not countries:
+                    excerpt, _ = _clip_excerpt(txt, "")
+                    _push(
+                        scan_empty,
+                        {
+                            "id": f"scan-{nid}",
+                            "channel": "RESIDENCE_NOTE",
+                            "agent_role": "Rule · Geo Scanner",
+                            "source_mode": "SCAN",
+                            "record_id": nid,
+                            "text": excerpt,
+                            "matched": False,
+                            "highlight_quote": "",
+                            "badge": None,
+                        },
+                    )
+
+        used_sr_ids: set[str] = {
+            eid
+            for cached in self.hit_cache.values()
+            for eid in (cached["hit_profile"].dob_evidence_ids or [])
+            if str(eid).startswith("SR-")
+        }
+        for sr in self.store.search_results:
+            if len(scan_empty) >= 4:
+                break
+            if sr["result_id"] in used_sr_ids:
+                continue
+            snip = (sr.get("snippet") or "").strip()
+            if not snip:
+                continue
+            excerpt, _ = _clip_excerpt(snip, "")
+            _push(
+                scan_empty,
+                {
+                    "id": f"scan-{sr['result_id']}",
+                    "channel": "SEARCH_SNIPPET",
+                    "agent_role": "Shield · Web Scanner",
+                    "source_mode": "SCAN",
+                    "record_id": sr["result_id"],
+                    "text": excerpt,
+                    "matched": False,
+                    "highlight_quote": "",
+                    "badge": None,
+                },
+            )
+
+        matched_pool = llm_matched + scan_matched
+        empty_pool = llm_empty + scan_empty
+
+        # Interleave up to 4 matched + 2 empty (or fill up to 6 from whichever is available)
+        curated: list[dict[str, Any]] = []
+        take_matched = matched_pool[:4]
+        take_empty = empty_pool[:2]
+        while len(take_matched) + len(take_empty) < 6 and len(matched_pool) > len(take_matched):
+            take_matched.append(matched_pool[len(take_matched)])
+        while len(take_matched) + len(take_empty) < 6 and len(empty_pool) > len(take_empty):
+            take_empty.append(empty_pool[len(take_empty)])
+
+        m_idx = 0
+        e_idx = 0
+        pattern = ("M", "E", "M", "M", "E", "M")
+        for kind in pattern:
+            if kind == "M" and m_idx < len(take_matched):
+                curated.append(take_matched[m_idx])
+                m_idx += 1
+            elif kind == "E" and e_idx < len(take_empty):
+                curated.append(take_empty[e_idx])
+                e_idx += 1
+        curated.extend(take_matched[m_idx:])
+        curated.extend(take_empty[e_idx:])
+        return curated[:6]
 
     def _compute_label_stats(self) -> dict[str, Any] | None:
         if not self.labels_by_hit:
@@ -740,13 +1179,16 @@ class DatasetSession:
 
 
 class VisualizerAppState:
-    """Thread-safe registry managing lazy loading and caching of datasets."""
+    """Thread-safe registry managing lazy loading, progress telemetry, and caching."""
 
     def __init__(self, preload_sample: bool = True, offline: bool = False) -> None:
         self.offline = offline
         self.specs = {d["id"]: d for d in discover_datasets()}
         self.sessions: dict[str, DatasetSession] = {}
         self._lock = threading.Lock()
+        self._ds_locks: dict[str, threading.Lock] = {did: threading.Lock() for did in self.specs}
+        self._progress_lock = threading.Lock()
+        self._progress: dict[str, dict[str, Any]] = {}
         if preload_sample and "sample" in self.specs:
             self.get_session("sample")
 
@@ -763,15 +1205,95 @@ class VisualizerAppState:
             )
         return out
 
+    def get_progress(self, dataset_id: str) -> dict[str, Any] | None:
+        if dataset_id not in self.specs:
+            return None
+        if dataset_id in self.sessions:
+            sess = self.sessions[dataset_id]
+            return {
+                "status": "ready",
+                "processed": len(sess.summary_hits),
+                "total": len(sess.summary_hits),
+                "llm_calls": sess.llm_info["stats"].get("requests_total", 0),
+                "events": list(sess.swarm_traces),
+            }
+        with self._progress_lock:
+            state = self._progress.get(dataset_id)
+            if state is None:
+                return {
+                    "status": "idle",
+                    "processed": 0,
+                    "total": self.specs[dataset_id].get("hit_count_hint") or 0,
+                    "llm_calls": 0,
+                    "events": [],
+                }
+            return {
+                "status": state["status"],
+                "processed": state["processed"],
+                "total": state["total"],
+                "llm_calls": state["llm_calls"],
+                "events": list(state["events"]),
+            }
+
     def get_session(self, dataset_id: str) -> DatasetSession | None:
         if dataset_id not in self.specs:
             return None
-        with self._lock:
-            if dataset_id not in self.sessions:
-                self.sessions[dataset_id] = DatasetSession(
-                    self.specs[dataset_id], offline=self.offline
-                )
-            return self.sessions[dataset_id]
+        sess = self.sessions.get(dataset_id)
+        if sess is not None:
+            return sess
+        ds_lock = self._ds_locks[dataset_id]
+        with ds_lock:
+            sess = self.sessions.get(dataset_id)
+            if sess is not None:
+                return sess
+
+            with self._progress_lock:
+                self._progress[dataset_id] = {
+                    "status": "loading",
+                    "processed": 0,
+                    "total": self.specs[dataset_id].get("hit_count_hint") or 0,
+                    "llm_calls": 0,
+                    "events": [],
+                    "seen": set(),
+                }
+
+            def _progress_cb(
+                processed: int | None,
+                total: int | None,
+                llm_calls: int | None,
+                evt: dict[str, Any] | None,
+            ) -> None:
+                with self._progress_lock:
+                    st = self._progress.get(dataset_id)
+                    if st is None:
+                        return
+                    if processed is not None:
+                        st["processed"] = processed
+                    if total is not None:
+                        st["total"] = total
+                    if llm_calls is not None:
+                        st["llm_calls"] = llm_calls
+                    if evt and evt.get("text"):
+                        key = f"{evt.get('source_mode')}|{evt['text'][:80]}"
+                        if key not in st["seen"] and len(st["events"]) < 24:
+                            st["seen"].add(key)
+                            st["events"].append(evt)
+
+            sess = DatasetSession(
+                self.specs[dataset_id],
+                offline=self.offline,
+                progress_cb=_progress_cb,
+            )
+            with self._lock:
+                self.sessions[dataset_id] = sess
+            with self._progress_lock:
+                st = self._progress.get(dataset_id)
+                if st is not None:
+                    st["status"] = "ready"
+                    st["processed"] = len(sess.summary_hits)
+                    st["total"] = len(sess.summary_hits)
+                    st["llm_calls"] = sess.llm_info["stats"].get("requests_total", 0)
+            return sess
 
 
 def make_handler(app_state: VisualizerAppState) -> type[BaseHTTPRequestHandler]:
@@ -814,6 +1336,14 @@ def make_handler(app_state: VisualizerAppState) -> type[BaseHTTPRequestHandler]:
             parts = [unquote(p) for p in path.strip("/").split("/") if p]
             if len(parts) >= 3 and parts[0] == "api" and parts[1] == "datasets":
                 dataset_id = parts[2]
+                if len(parts) == 4 and parts[3] == "progress":
+                    prog = app_state.get_progress(dataset_id)
+                    if prog is None:
+                        self._send_json({"error": f"Unknown dataset: {dataset_id}"}, status=404)
+                        return
+                    self._send_json(prog)
+                    return
+
                 session = app_state.get_session(dataset_id)
                 if session is None:
                     self._send_json({"error": f"Unknown dataset: {dataset_id}"}, status=404)

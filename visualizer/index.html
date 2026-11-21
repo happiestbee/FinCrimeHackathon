@@ -133,6 +133,10 @@
     font-size: 12.5px;
     font-weight: 500;
     padding: 4px 18px 4px 2px;
+    max-width: clamp(140px, 19vw, 265px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     cursor: pointer;
     outline: none;
     background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
@@ -147,18 +151,20 @@
   .telemetry-strip {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 11px;
+    flex-shrink: 0;
   }
   .t-metric {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: transparent;
     border: none;
     padding: 4px 0;
     color: var(--ink-3);
     font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-size: 11px;
+    white-space: nowrap;
     cursor: pointer;
     border-bottom: 1.5px solid transparent;
     transition: color 0.15s, border-color 0.15s;
@@ -185,28 +191,39 @@
   .topbar-right {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
+    flex-shrink: 0;
   }
   .score-readout {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--ink-2);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .llm-tag {
+    max-width: clamp(78px, 11vw, 220px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
   }
   .score-readout .ok { color: #34d399; font-weight: 600; }
 
   .cmdk-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(59, 130, 246, 0.08);
     border: 1px solid rgba(59, 130, 246, 0.25);
     color: var(--ink-2);
-    padding: 4px 10px;
+    padding: 4px 9px;
     border-radius: 4px;
     font-size: 11.5px;
+    white-space: nowrap;
     cursor: pointer;
     transition: all 0.15s;
   }
@@ -214,6 +231,15 @@
     background: rgba(59, 130, 246, 0.16);
     border-color: rgba(96, 165, 250, 0.5);
     color: var(--ink);
+  }
+  .cmdk-trigger.on {
+    border-color: rgba(96, 165, 250, 0.52);
+    background: rgba(59, 130, 246, 0.16);
+    color: var(--ink);
+  }
+  .cmdk-trigger.off .dot {
+    background: var(--ink-4);
+    box-shadow: none;
   }
   .kbd {
     font-family: var(--font-mono);
@@ -895,14 +921,552 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── SWARM AI READER + QUANTUM VORTEX OVERLAY ── */
+  .swarm-stage {
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.16) 0%, rgba(3, 6, 15, 0.94) 55%, rgba(2, 4, 10, 0.98) 100%);
+    backdrop-filter: blur(18px);
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .swarm-stage.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .swarm-stage.closing {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .swarm-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(96, 165, 250, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96, 165, 250, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.85) 20%, transparent 78%);
+    pointer-events: none;
+  }
+  .swarm-hud {
+    position: absolute;
+    top: 16px;
+    left: 22px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 55;
+    pointer-events: none;
+  }
+  .swarm-hud-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(9, 15, 32, 0.78);
+    border: 1px solid rgba(96, 165, 250, 0.24);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    backdrop-filter: blur(10px);
+  }
+  .swarm-hud-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+    animation: swarmPulse 1.3s ease-in-out infinite;
+  }
+  @keyframes swarmPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.8); }
+  }
+  .swarm-skip-btn {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .swarm-skip-btn:hover {
+    color: var(--ink);
+    border-color: var(--cobalt-bright);
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  /* Central Quantum Vortex Portal */
+  .swarm-vortex {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 176px;
+    height: 176px;
+    transform: translate(-50%, -50%) scale(1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 48;
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+  }
+  .swarm-vortex.collapsing {
+    transform: translate(-50%, -50%) scale(0.08);
+    opacity: 0;
+  }
+  .vortex-accretion {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(59, 130, 246, 0.0) 0deg,
+      rgba(96, 165, 250, 0.55) 75deg,
+      rgba(34, 211, 238, 0.85) 130deg,
+      rgba(99, 102, 241, 0.2) 210deg,
+      rgba(59, 130, 246, 0.6) 290deg,
+      rgba(59, 130, 246, 0.0) 360deg
+    );
+    mask-image: radial-gradient(circle, transparent 43%, #000 56%, #000 66%, transparent 74%);
+    animation: vortexSpin 2.6s linear infinite;
+    filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.4));
+  }
+  .vortex-ring-inner {
+    position: absolute;
+    inset: 22px;
+    border-radius: 50%;
+    border: 1px dashed rgba(96, 165, 250, 0.45);
+    animation: vortexSpinRev 6s linear infinite;
+  }
+  .vortex-core {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #010309 42%, rgba(8, 17, 40, 0.96) 76%, rgba(34, 211, 238, 0.35) 100%);
+    box-shadow:
+      inset 0 0 26px rgba(59, 130, 246, 0.45),
+      0 0 38px rgba(59, 130, 246, 0.28);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: transform 0.18s ease, box-shadow 0.2s ease;
+  }
+  .swarm-vortex.absorb-cobalt .vortex-core {
+    transform: scale(1.1);
+    box-shadow: inset 0 0 32px rgba(96, 165, 250, 0.75), 0 0 54px rgba(59, 130, 246, 0.6);
+  }
+  .swarm-vortex.absorb-hit .vortex-core {
+    transform: scale(1.14);
+    box-shadow: inset 0 0 36px rgba(34, 211, 238, 0.85), 0 0 60px rgba(16, 185, 129, 0.55);
+  }
+  .vortex-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--cobalt-bright);
+    text-transform: uppercase;
+  }
+  .vortex-count {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+  .vortex-ripple {
+    position: absolute;
+    inset: 34px;
+    border-radius: 50%;
+    border: 2px solid rgba(34, 211, 238, 0.75);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .vortex-ripple.hit { border-color: rgba(16, 185, 129, 0.85); }
+  .vortex-ripple.go {
+    animation: vortexRipple 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes vortexSpin { to { transform: rotate(360deg); } }
+  @keyframes vortexSpinRev { to { transform: rotate(-360deg); } }
+  @keyframes vortexRipple {
+    0% { transform: scale(0.75); opacity: 0.9; }
+    100% { transform: scale(1.95); opacity: 0; }
+  }
+
+  /* Swarm Floating Paragraph Cards */
+  .swarm-cards-layer,
+  .swarm-cursors-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .swarm-cursors-layer { z-index: 60; }
+  .swarm-card {
+    position: absolute;
+    width: clamp(248px, 24vw, 326px);
+    padding: 12px 14px 11px;
+    border-radius: 10px;
+    background: rgba(9, 15, 32, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(59, 130, 246, 0.08);
+    backdrop-filter: blur(14px);
+    transform-origin: center center;
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+    transition: opacity 0.34s ease, transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+    will-change: transform, opacity, filter;
+    z-index: 50;
+  }
+  .swarm-card.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .swarm-card.has-hit {
+    border-color: rgba(34, 211, 238, 0.55);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.58), 0 0 28px rgba(34, 211, 238, 0.16);
+  }
+  .swarm-card.sucking {
+    transition: none;
+    z-index: 49;
+  }
+  .swarm-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .swarm-mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .swarm-mode-pill.llm {
+    background: rgba(99, 102, 241, 0.22);
+    border: 1px solid rgba(129, 140, 248, 0.42);
+    color: #c7d2fe;
+  }
+  .swarm-mode-pill.scan {
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    color: #93c5fd;
+  }
+  .swarm-rec-id {
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .swarm-para-wrap {
+    position: relative;
+    margin: 0;
+  }
+  .swarm-sel-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.24s ease;
+  }
+  .swarm-sel-layer.faded { opacity: 0; }
+  .swarm-sel-rect {
+    position: absolute;
+    background: rgba(13, 153, 255, 0.28);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .swarm-caret {
+    position: absolute;
+    width: 1.5px;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    animation: caretBlink 0.75s steps(1) infinite;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+  }
+  @keyframes caretBlink { 50% { opacity: 0.15; } }
+  .swarm-para {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.56;
+    color: var(--ink-2);
+    word-break: break-word;
+  }
+  mark.swarm-hl {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.34), rgba(34, 211, 238, 0.32));
+    color: #f8fafc;
+    border-bottom: 1.5px solid #22d3ee;
+    border-radius: 2px;
+    padding: 0;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.26);
+    animation: hlPop 0.32s ease;
+  }
+  @keyframes hlPop {
+    0% { background: rgba(34, 211, 238, 0.65); }
+    100% { background: linear-gradient(90deg, rgba(16, 185, 129, 0.34), rgba(34, 211, 238, 0.32)); }
+  }
+  .swarm-card-foot {
+    margin-top: 8px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .swarm-outcome {
+    color: var(--ink-3);
+    transition: color 0.2s ease, transform 0.22s ease;
+  }
+  .swarm-outcome.hit {
+    color: #34d399;
+    font-weight: 600;
+    transform: translateX(0);
+  }
+  .swarm-outcome.empty {
+    color: var(--ink-3);
+  }
+
+  /* Swarm Multiplayer Cursor (califa/swarm-site style) */
+  .swarm-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+  }
+  .swarm-cursor.visible { opacity: 1; }
+  .swarm-cursor svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+  }
+  .swarm-cursor-badge {
+    position: absolute;
+    left: 15px;
+    top: 14px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: #03060f;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Figma Crosshair Draft Box (califa/swarm-site style) */
+  .swarm-draft-box {
+    position: absolute;
+    border: 1px dashed rgba(96, 165, 250, 0.85);
+    background: rgba(59, 130, 246, 0.07);
+    pointer-events: none;
+    box-sizing: border-box;
+    z-index: 48;
+  }
+  .swarm-draft-corner {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: #f8fafc;
+    border: 1px solid #3b82f6;
+  }
+  .swarm-draft-corner.tl { left: -3px; top: -3px; }
+  .swarm-draft-corner.tr { right: -3px; top: -3px; }
+  .swarm-draft-corner.bl { left: -3px; bottom: -3px; }
+  .swarm-draft-corner.br { right: -3px; bottom: -3px; }
+  .swarm-size-pill {
+    position: absolute;
+    left: 50%;
+    bottom: -20px;
+    transform: translateX(-50%);
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #2563eb;
+    color: #f8fafc;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Studio Cursor Builder & Ambient Flocking Layers */
+  .studio-build-layer,
+  .swarm-flock-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .studio-build-layer { z-index: 44; }
+  .swarm-flock-layer {
+    z-index: 41;
+    transition: opacity 0.25s ease;
+  }
+  .swarm-flock-layer.hidden { opacity: 0; }
+  .swarm-flock-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.84;
+    will-change: transform;
+    pointer-events: none;
+  }
+  .swarm-flock-cursor svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.65));
+  }
+  .swarm-flock-badge {
+    position: absolute;
+    left: 11px;
+    top: 11px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #03060f;
+    white-space: nowrap;
+    opacity: 0.92;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Blank canvas mode while Studio Swarm Builders paint the entire workspace */
+  #railList.building-blank .rail-row {
+    opacity: 0;
+    transition: opacity 0.24s ease;
+  }
+  #canvas.building-blank .hero-kicker-row,
+  #canvas.building-blank .hero-headline,
+  #canvas.building-blank .verdict-row,
+  #canvas.building-blank .narrative-prose,
+  #canvas.building-blank .evidence-strip,
+  #canvas.building-blank .section-head,
+  #canvas.building-blank .precedence-step,
+  #canvas.building-blank .cand-strip,
+  #canvas.building-blank .ledger thead,
+  #canvas.building-blank .ledger tbody tr,
+  #canvas.building-blank .section-block > :not(.section-head):not(.precedence-track):not(.ledger):not(.stream-stage) {
+    opacity: 0;
+    transition: opacity 0.26s ease;
+  }
+  #canvas.building-blank .stream-stage .s-node {
+    opacity: 0;
+  }
+
+  /* Bottom-Right Floating Swarm Controls Dock */
+  .swarm-dock {
+    position: fixed;
+    right: 18px;
+    bottom: 14px;
+    z-index: 43;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(7, 12, 26, 0.86);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  }
+  .dock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .dock-btn:hover { color: var(--ink); background: rgba(59, 130, 246, 0.16); }
+  .dock-btn.on { color: #93c5fd; background: rgba(59, 130, 246, 0.22); }
+  .prose-typing-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 1.05em;
+    vertical-align: -0.15em;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    margin-left: 1px;
+    animation: caretBlink 0.7s steps(1) infinite;
+  }
+
   @media (max-width: 980px) {
     html, body { height: auto; overflow: auto; }
     .app { height: auto; overflow: visible; }
     .shell { grid-template-columns: 1fr; overflow: visible; }
-    .rail { max-height: 300px; border-right: none; border-bottom: 1px solid var(--hairline); }
+    .rail { max-height: 260px; border-right: none; border-bottom: 1px solid var(--hairline); }
     .precedence-track { grid-template-columns: repeat(2, 1fr); }
     .telemetry-strip { display: none; }
-    .canvas-inner { padding: 20px 18px 48px; }
+    .canvas-inner { padding: 20px 18px 64px; }
+  }
+
+  @media (max-width: 720px) {
+    .topbar {
+      height: auto;
+      min-height: 48px;
+      flex-wrap: wrap;
+      padding: 8px 12px;
+      gap: 8px;
+    }
+    .brand-group { flex: 1 1 auto; min-width: 0; gap: 8px; }
+    select.minimal-select { max-width: calc(100vw - 175px); font-size: 12px; }
+    .topbar-right { width: 100%; justify-content: space-between; gap: 8px; }
+    .score-readout { font-size: 10px; gap: 5px; overflow: hidden; text-overflow: ellipsis; }
+    .llm-tag { max-width: 92px; }
+    .hero-headline { font-size: 22px; }
+    .ledger { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .forensic-sheet { width: 100vw; max-width: 100vw; }
+    .swarm-hud { top: 10px; left: 10px; right: 10px; gap: 8px; flex-wrap: wrap; }
+    .swarm-hud-left { font-size: 10px; padding: 5px 10px; max-width: 68vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .swarm-skip-btn { font-size: 10px; padding: 5px 9px; }
+    .swarm-vortex { width: 124px; height: 124px; }
+    .vortex-core { width: 72px; height: 72px; }
+    .vortex-label { font-size: 7.5px; }
+    .vortex-count { font-size: 11px; }
+    .swarm-card { width: min(332px, calc(100vw - 28px)); padding: 10px 12px; }
+    .swarm-dock { right: 10px; bottom: 10px; }
   }
 </style>
 </head>
@@ -923,6 +1487,10 @@
 
     <div class="topbar-right">
       <div class="score-readout" id="scoreReadout"></div>
+      <button class="cmdk-trigger on" id="toggleFlockBtn" title="Wake or hide mouse-following swarm cursors">
+        <span class="dot cobalt" id="swarmTopDot" style="width:6px;height:6px;border-radius:50%;display:inline-block;"></span>
+        <span id="swarmTopLabel">Swarm</span>
+      </button>
       <button class="cmdk-trigger" id="openCmdkBtn" title="Open Command Palette (⌘K)">
         <span>Jump</span>
         <span class="kbd">⌘K</span>
@@ -973,6 +1541,42 @@
   </div>
 </div>
 
+<!-- SWARM AI READER + QUANTUM VORTEX STAGE -->
+<div class="swarm-stage" id="swarmStage" aria-hidden="true">
+  <div class="swarm-grid-bg"></div>
+  <div class="swarm-hud">
+    <div class="swarm-hud-left">
+      <span class="swarm-hud-dot"></span>
+      <span id="swarmHudTitle">SWARM READER · INITIALIZING</span>
+    </div>
+    <button class="swarm-skip-btn" id="swarmSkipBtn" type="button">SKIP ANIMATION · ESC</button>
+  </div>
+  <div class="swarm-vortex" id="swarmVortex">
+    <div class="vortex-accretion"></div>
+    <div class="vortex-ring-inner"></div>
+    <div class="vortex-ripple" id="vortexRipple"></div>
+    <div class="vortex-core">
+      <div class="vortex-label">ENTITY ENGINE</div>
+      <div class="vortex-count" id="vortexCount">0 / 0</div>
+    </div>
+  </div>
+  <div class="swarm-cards-layer" id="swarmCardsLayer"></div>
+  <div class="swarm-cursors-layer" id="swarmCursorsLayer"></div>
+</div>
+
+<!-- STUDIO CURSOR-BUILDER & PERSISTENT MOUSE-FOLLOW FLOCK LAYERS -->
+<div class="studio-build-layer" id="studioBuildLayer" aria-hidden="true"></div>
+<div class="swarm-flock-layer" id="swarmFlockLayer" aria-hidden="true"></div>
+<div class="swarm-dock" id="swarmDock">
+  <button class="dock-btn" id="replaySwarmBtn" type="button" title="Replay Stage 1 Vortex Reading + Full Studio Build">
+    <span class="dot cobalt" style="width:5px;height:5px;"></span>
+    <span>Replay Scan</span>
+  </button>
+  <button class="dock-btn" id="replayBuildBtn" type="button" title="Replay Full-Canvas Cursor Construction">
+    <span>Replay Build</span>
+  </button>
+</div>
+
 <!-- FROSTED COBALT SLIDE-OVER FORENSIC SHEET -->
 <div class="sheet-backdrop" id="sheetBackdrop"></div>
 <aside class="forensic-sheet" id="forensicSheet" aria-label="Forensic Source Inspector">
@@ -1008,10 +1612,18 @@
     selectedCandidateIdx: 0,
     detailCache: new Map(),
     sheetPayload: null,
+    swarmToken: 0,
+    studioBuildToken: 0,
+    pendingStudioBuild: false,
+    lastRenderedDetail: null,
+    flockEnabled: true,
+    staticMode: false,
+    chunkPromises: new Map(),
     filters: { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" },
   };
 
   const els = {
+    topbar: document.querySelector(".topbar"),
     datasetSelect: document.getElementById("datasetSelect"),
     telemetryStrip: document.getElementById("telemetryStrip"),
     scoreReadout: document.getElementById("scoreReadout"),
@@ -1034,9 +1646,23 @@
     sheetCopyBtn: document.getElementById("sheetCopyBtn"),
     sheetCloseBtn: document.getElementById("sheetCloseBtn"),
     openCmdkBtn: document.getElementById("openCmdkBtn"),
+    replaySwarmBtn: document.getElementById("replaySwarmBtn"),
     cmdkOverlay: document.getElementById("cmdkOverlay"),
     cmdkInput: document.getElementById("cmdkInput"),
     cmdkResults: document.getElementById("cmdkResults"),
+    swarmStage: document.getElementById("swarmStage"),
+    swarmHudTitle: document.getElementById("swarmHudTitle"),
+    swarmSkipBtn: document.getElementById("swarmSkipBtn"),
+    swarmVortex: document.getElementById("swarmVortex"),
+    vortexRipple: document.getElementById("vortexRipple"),
+    vortexCount: document.getElementById("vortexCount"),
+    swarmCardsLayer: document.getElementById("swarmCardsLayer"),
+    swarmCursorsLayer: document.getElementById("swarmCursorsLayer"),
+    studioBuildLayer: document.getElementById("studioBuildLayer"),
+    swarmFlockLayer: document.getElementById("swarmFlockLayer"),
+    toggleFlockBtn: document.getElementById("toggleFlockBtn"),
+    swarmTopLabel: document.getElementById("swarmTopLabel"),
+    replayBuildBtn: document.getElementById("replayBuildBtn"),
   };
 
   const esc = v => v === null || v === undefined ? "" : String(v)
@@ -1046,10 +1672,1147 @@
   const decCls = d => d === "DIFFERENT_ENTITY" ? "diff" : (d === "SAME_ENTITY" ? "same" : "rev");
   const decOp = d => d === "DIFFERENT_ENTITY" ? "≠" : (d === "SAME_ENTITY" ? "≡" : "?");
 
+  const CURSOR_PALETTE = ["#22d3ee", "#60a5fa", "#a78bfa", "#34d399", "#38bdf8", "#818cf8", "#2dd4bf", "#f472b6"];
+
+  function sleepMs(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function restoreStudioStatic() {
+    els.studioBuildLayer.innerHTML = "";
+    els.railList.classList.remove("building-blank");
+    els.canvas.classList.remove("building-blank");
+    els.railList.querySelectorAll(".rail-row").forEach(el => { el.style.opacity = ""; });
+    els.canvas.querySelectorAll(
+      ".hero-kicker-row, .hero-headline, .verdict-row, .narrative-prose, .evidence-strip, .section-head, .precedence-step, .cand-strip, .stream-stage, .ledger thead, .ledger tbody tr, .section-block > *"
+    ).forEach(el => { el.style.opacity = ""; });
+
+    const svg = els.canvas.querySelector(".stream-svg");
+    if (svg) {
+      svg.querySelectorAll(".s-node").forEach(g => {
+        g.style.opacity = "";
+        g.style.transition = "";
+      });
+      svg.querySelectorAll("path").forEach(p => {
+        const origDash = p.getAttribute("data-orig-dash");
+        if (origDash !== null) {
+          if (origDash) p.setAttribute("stroke-dasharray", origDash);
+          else p.removeAttribute("stroke-dasharray");
+        }
+        p.style.strokeDasharray = "";
+        p.style.strokeDashoffset = "";
+      });
+      svg.querySelectorAll("circle").forEach(c => { c.style.opacity = ""; });
+    }
+    els.canvas.querySelectorAll(".hero-headline, .narrative-prose").forEach(el => {
+      if (el.dataset.fullHtml) {
+        el.innerHTML = el.dataset.fullHtml;
+        el.style.minHeight = "";
+        delete el.dataset.fullHtml;
+      }
+      if (state.lastRenderedDetail) {
+        el.querySelectorAll("[data-inspect]").forEach(btn => {
+          btn.addEventListener("click", () => openSheet(state.lastRenderedDetail, btn.getAttribute("data-inspect")));
+        });
+      }
+    });
+  }
+
+  function closeSwarmStage(immediate = false, cancelled = false) {
+    state.swarmToken += 1;
+    if (cancelled) {
+      state.pendingStudioBuild = false;
+      state.studioBuildToken += 1;
+      restoreStudioStatic();
+    }
+    els.swarmStage.classList.remove("active");
+    els.swarmStage.classList.add("closing");
+    els.swarmStage.setAttribute("aria-hidden", "true");
+    els.swarmVortex.classList.remove("collapsing", "absorb-cobalt", "absorb-hit");
+    const clearLayers = () => {
+      els.swarmCardsLayer.innerHTML = "";
+      els.swarmCursorsLayer.innerHTML = "";
+      els.swarmStage.classList.remove("closing");
+      updateFlockVisibility();
+    };
+    if (immediate) {
+      clearLayers();
+    } else {
+      setTimeout(() => {
+        if (!els.swarmStage.classList.contains("active")) clearLayers();
+      }, 360);
+    }
+  }
+
+  // ── PERSISTENT BOIDS MOUSE-FOLLOW FLOCK ENGINE (10 multiplayer cursors) ──
+  const flockState = {
+    agents: [
+      { name: "Bio Reader", color: "#22d3ee", x: 520, y: 240, vx: 0, vy: 0, baseAng: 0.2, rad: 56, speed: 0.55 },
+      { name: "KYC Guard", color: "#60a5fa", x: 640, y: 310, vx: 0, vy: 0, baseAng: 1.4, rad: 74, speed: 0.48 },
+      { name: "Geo Miner", color: "#a78bfa", x: 760, y: 260, vx: 0, vy: 0, baseAng: 2.6, rad: 64, speed: 0.62 },
+      { name: "Policy Judge", color: "#34d399", x: 610, y: 400, vx: 0, vy: 0, baseAng: 3.9, rad: 88, speed: 0.42 },
+      { name: "Name Matcher", color: "#38bdf8", x: 460, y: 340, vx: 0, vy: 0, baseAng: 5.1, rad: 102, speed: -0.50 },
+      { name: "DOB Parser", color: "#818cf8", x: 820, y: 380, vx: 0, vy: 0, baseAng: 0.9, rad: 118, speed: 0.36 },
+      { name: "Shield Filter", color: "#2dd4bf", x: 540, y: 450, vx: 0, vy: 0, baseAng: 2.2, rad: 132, speed: -0.44 },
+      { name: "Alias Graph", color: "#f472b6", x: 700, y: 190, vx: 0, vy: 0, baseAng: 3.4, rad: 96, speed: 0.58 },
+      { name: "Sanctions API", color: "#60a5fa", x: 430, y: 210, vx: 0, vy: 0, baseAng: 4.7, rad: 146, speed: -0.34 },
+      { name: "Audit Trail", color: "#22d3ee", x: 860, y: 280, vx: 0, vy: 0, baseAng: 5.7, rad: 124, speed: 0.46 },
+    ],
+    els: [],
+    mouse: { x: window.innerWidth * 0.60, y: window.innerHeight * 0.48, active: false, lastMove: 0 },
+    building: false,
+    rafId: 0,
+    lastTs: 0,
+  };
+
+  function wakeFlockAroundPointer() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cx = flockState.mouse.active ? flockState.mouse.x : vw * 0.58;
+    const cy = flockState.mouse.active ? flockState.mouse.y : vh * 0.48;
+    flockState.agents.forEach((a, i) => {
+      const ang = (i / flockState.agents.length) * Math.PI * 2;
+      const startR = a.rad + 140;
+      a.x = Math.max(20, Math.min(vw - 85, cx + Math.cos(ang) * startR));
+      a.y = Math.max(58, Math.min(vh - 30, cy + Math.sin(ang) * startR));
+      a.vx = -Math.cos(ang) * 180;
+      a.vy = -Math.sin(ang) * 180;
+    });
+  }
+
+  function initFlockCursors() {
+    els.swarmFlockLayer.innerHTML = "";
+    flockState.els = flockState.agents.map(ag => {
+      const node = document.createElement("div");
+      node.className = "swarm-flock-cursor";
+      node.innerHTML = `
+        ${cursorSvgMarkup(ag.color, "arrow")}
+        <div class="swarm-flock-badge" style="background:${ag.color};">${esc(ag.name)}</div>
+      `;
+      els.swarmFlockLayer.appendChild(node);
+      node.style.transform = `translate3d(${ag.x}px, ${ag.y}px, 0)`;
+      return node;
+    });
+    updateFlockVisibility();
+    if (!flockState.rafId) {
+      flockState.lastTs = performance.now();
+      const loop = now => {
+        const dt = Math.min(0.05, Math.max(0.001, (now - flockState.lastTs) / 1000));
+        flockState.lastTs = now;
+        stepFlockPhysics(now / 1000, dt);
+        flockState.rafId = requestAnimationFrame(loop);
+      };
+      flockState.rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  function updateFlockVisibility() {
+    const show = state.flockEnabled && !els.swarmStage.classList.contains("active") && !flockState.building;
+    els.swarmFlockLayer.classList.toggle("hidden", !show);
+    if (els.toggleFlockBtn) {
+      els.toggleFlockBtn.classList.toggle("on", state.flockEnabled);
+      els.toggleFlockBtn.classList.toggle("off", !state.flockEnabled);
+      if (els.swarmTopLabel) els.swarmTopLabel.textContent = state.flockEnabled ? "Swarm" : "Swarm · Off";
+    }
+  }
+
+  function seedFlockPositions(points) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    flockState.agents.forEach((a, idx) => {
+      const pt = points.length ? points[idx % points.length] : null;
+      if (pt) {
+        a.x = Math.max(20, Math.min(vw - 85, pt.x + ((idx % 3) - 1) * 28));
+        a.y = Math.max(58, Math.min(vh - 30, pt.y + ((idx % 2) ? 18 : -18)));
+        a.vx = 0;
+        a.vy = 0;
+      }
+    });
+  }
+
+  function stepFlockPhysics(tSec, dt) {
+    if (!state.flockEnabled || els.swarmStage.classList.contains("active") || flockState.building) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const mouseRecent = flockState.mouse.active && (performance.now() - flockState.mouse.lastMove < 6500);
+    const anchorX = mouseRecent ? flockState.mouse.x : vw * 0.62;
+    const anchorY = mouseRecent ? flockState.mouse.y : vh * 0.46;
+
+    const agents = flockState.agents;
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const ang = a.baseAng + tSec * a.speed;
+      const rad = mouseRecent ? a.rad : (a.rad * 1.45);
+      const tx = Math.max(24, Math.min(vw - 95, anchorX + Math.cos(ang) * rad));
+      const ty = Math.max(58, Math.min(vh - 34, anchorY + Math.sin(ang) * (rad * 0.72)));
+
+      let ax = (tx - a.x) * 5.6;
+      let ay = (ty - a.y) * 5.6;
+
+      // Keep clear bubble around real user cursor so clicks/hover stay unobstructed
+      if (mouseRecent) {
+        const mdx = a.x - flockState.mouse.x;
+        const mdy = a.y - flockState.mouse.y;
+        const mdist = Math.hypot(mdx, mdy) || 0.01;
+        if (mdist < 46) {
+          const push = ((46 - mdist) / 46) * 460;
+          ax += (mdx / mdist) * push;
+          ay += (mdy / mdist) * push;
+        }
+      }
+
+      // Pairwise separation among the 10 agent cursors
+      for (let j = 0; j < agents.length; j++) {
+        if (i === j) continue;
+        const b = agents[j];
+        const sdx = a.x - b.x;
+        const sdy = a.y - b.y;
+        const sdist = Math.hypot(sdx, sdy) || 0.01;
+        if (sdist < 44) {
+          const rep = ((44 - sdist) / 44) * 280;
+          ax += (sdx / sdist) * rep;
+          ay += (sdy / sdist) * rep;
+        }
+      }
+
+      a.vx = (a.vx + ax * dt) * Math.pow(0.05, dt);
+      a.vy = (a.vy + ay * dt) * Math.pow(0.05, dt);
+      const spd = Math.hypot(a.vx, a.vy);
+      if (spd > 780) {
+        a.vx = (a.vx / spd) * 780;
+        a.vy = (a.vy / spd) * 780;
+      }
+      a.x = Math.max(12, Math.min(vw - 85, a.x + a.vx * dt));
+      a.y = Math.max(54, Math.min(vh - 28, a.y + a.vy * dt));
+      if (flockState.els[i]) {
+        flockState.els[i].style.transform = `translate3d(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px, 0)`;
+      }
+    }
+  }
+
+  // Shared token-by-token typist helper for headlines & verdict prose
+  async function typeElementWithCursor(targetEl, detail, color, badge, durationMs, alive, onPos) {
+    if (!targetEl || !alive()) return;
+    targetEl.dataset.fullHtml = targetEl.innerHTML;
+    const rect = targetEl.getBoundingClientRect();
+    targetEl.style.minHeight = `${Math.ceil(rect.height)}px`;
+
+    const segs = [];
+    Array.from(targetEl.childNodes).forEach(nd => {
+      if (nd.nodeType === Node.TEXT_NODE) {
+        const val = nd.textContent || "";
+        for (let i = 0; i < val.length; i += 2) {
+          segs.push({ kind: "char", text: val.slice(i, i + 2) });
+        }
+      } else if (nd.nodeType === Node.ELEMENT_NODE) {
+        // Keep small spans/buttons atomic or type plain span text gradually
+        if (nd.tagName === "SPAN" && !nd.querySelector("button")) {
+          const spanClass = nd.className ? ` class="${nd.className}"` : "";
+          const txt = nd.textContent || "";
+          segs.push({ kind: "spanStart", cls: nd.className || "" });
+          for (let i = 0; i < txt.length; i += 2) {
+            segs.push({ kind: "spanChar", text: txt.slice(i, i + 2) });
+          }
+          segs.push({ kind: "spanEnd" });
+        } else {
+          segs.push({ kind: "el", html: nd.outerHTML });
+        }
+      }
+    });
+
+    targetEl.innerHTML = "";
+    targetEl.style.opacity = "1";
+    const caretEl = document.createElement("span");
+    caretEl.className = "prose-typing-caret";
+    targetEl.appendChild(caretEl);
+
+    const cur = createSwarmCursorEl(color, badge, "arrow");
+    els.studioBuildLayer.appendChild(cur);
+    cur.classList.add("visible");
+
+    let activeSpan = null;
+    const startTs = performance.now();
+    let idx = 0;
+
+    await new Promise(resolve => {
+      function tick(now) {
+        if (!alive()) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const targetIdx = Math.floor(t * segs.length);
+        while (idx < targetIdx && idx < segs.length) {
+          const s = segs[idx++];
+          if (s.kind === "char") {
+            activeSpan = null;
+            const prev = caretEl.previousSibling;
+            if (prev && prev.nodeType === Node.TEXT_NODE) prev.nodeValue += s.text;
+            else caretEl.parentNode.insertBefore(document.createTextNode(s.text), caretEl);
+          } else if (s.kind === "spanStart") {
+            activeSpan = document.createElement("span");
+            if (s.cls) activeSpan.className = s.cls;
+            caretEl.parentNode.insertBefore(activeSpan, caretEl);
+          } else if (s.kind === "spanChar") {
+            if (activeSpan) activeSpan.textContent += s.text;
+          } else if (s.kind === "spanEnd") {
+            activeSpan = null;
+          } else {
+            activeSpan = null;
+            const wrap = document.createElement("span");
+            wrap.innerHTML = s.html;
+            const node = wrap.firstElementChild;
+            if (node) {
+              const id = node.getAttribute("data-inspect");
+              if (id && detail) node.addEventListener("click", () => openSheet(detail, id));
+              caretEl.parentNode.insertBefore(node, caretEl);
+            }
+          }
+        }
+        const cRect = caretEl.getBoundingClientRect();
+        if (cRect.width || cRect.height) {
+          const cx = cRect.left + 4;
+          const cy = cRect.top + cRect.height * 0.72;
+          cur.style.transform = `translate3d(${cx.toFixed(1)}px, ${cy.toFixed(1)}px, 0)`;
+          if (onPos) onPos({ x: cx, y: cy });
+        }
+        if (t < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+    caretEl.remove();
+    targetEl.style.minHeight = "";
+    cur.remove();
+  }
+
+  // ── FULL-SCREEN STUDIO CURSOR-BUILD CHOREOGRAPHY (Blank -> Built by 10 Cursors) ──
+  async function runStudioCursorBuild(detail) {
+    if (!detail) return;
+    const token = ++state.studioBuildToken;
+    state.pendingStudioBuild = false;
+    restoreStudioStatic();
+
+    const alive = () => token === state.studioBuildToken && !els.swarmStage.classList.contains("active");
+    const svg = els.canvas.querySelector(".stream-svg");
+    const prose = els.canvas.querySelector(".narrative-prose");
+    const headline = els.canvas.querySelector(".hero-headline");
+    if (!svg && !prose && !headline) return;
+
+    flockState.building = true;
+    updateFlockVisibility();
+    els.studioBuildLayer.innerHTML = "";
+    els.railList.classList.add("building-blank");
+    els.canvas.classList.add("building-blank");
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (!alive()) { restoreStudioStatic(); flockState.building = false; updateFlockVisibility(); return; }
+
+    const exitPoints = [];
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const isOnScreen = rect => rect.width > 4 && rect.height > 4 && rect.bottom > 48 && rect.top < vh - 12 && rect.right > 0 && rect.left < vw;
+
+    // Pre-hide Provenance Stream SVG elements
+    let svgData = null;
+    if (svg) {
+      const ctm = svg.getScreenCTM();
+      const toScreen = (sx, sy) => (!ctm ? { x: sx, y: sy } : { x: ctm.a * sx + ctm.c * sy + ctm.e, y: ctm.b * sx + ctm.d * sy + ctm.f });
+      const nodeGroups = Array.from(svg.querySelectorAll(".s-node"));
+      const pathEls = Array.from(svg.querySelectorAll("path"));
+      const pulseEls = Array.from(svg.querySelectorAll("circle"));
+
+      nodeGroups.forEach(g => { g.style.opacity = "0"; g.style.transition = "opacity 0.25s ease"; });
+      pathEls.forEach(p => {
+        const orig = p.getAttribute("stroke-dasharray") || "";
+        p.setAttribute("data-orig-dash", orig);
+        const len = p.getTotalLength();
+        p.style.strokeDasharray = `${len}`;
+        p.style.strokeDashoffset = `${len}`;
+      });
+      pulseEls.forEach(c => { c.style.opacity = "0"; });
+
+      const leftNodes = [], centerNodes = [], rightNodes = [];
+      nodeGroups.forEach(g => {
+        const r = g.querySelector("rect");
+        if (!r) return;
+        const x = parseFloat(r.getAttribute("x") || "0");
+        const y = parseFloat(r.getAttribute("y") || "0");
+        const w = parseFloat(r.getAttribute("width") || "0");
+        const h = parseFloat(r.getAttribute("height") || "0");
+        const tl = toScreen(x, y);
+        const br = toScreen(x + w, y + h);
+        const box = { g, svgW: Math.round(w), svgH: Math.round(h), left: tl.x, top: tl.y, width: br.x - tl.x, height: br.y - tl.y };
+        if (x < 300) leftNodes.push(box);
+        else if (x > 600) rightNodes.push(box);
+        else centerNodes.push(box);
+      });
+      svgData = { toScreen, leftNodes, centerNodes, rightNodes, pathEls, pulseEls };
+    }
+
+    // ACT 1: Left Triage Rail + Hero Header + Verdict Narrative (deliberate pace)
+    const railTask = (async () => {
+      const rows = Array.from(els.railList.querySelectorAll(".rail-row"));
+      const visibleRows = rows.filter(r => isOnScreen(r.getBoundingClientRect()));
+      const railCur = createSwarmCursorEl("#38bdf8", "Triage · Queue", "crosshair");
+      els.studioBuildLayer.appendChild(railCur);
+      for (let i = 0; i < Math.min(2, visibleRows.length); i++) {
+        if (!alive()) break;
+        const rr = visibleRows[i].getBoundingClientRect();
+        await animateCursorDrawBox(
+          els.studioBuildLayer,
+          railCur,
+          "#38bdf8",
+          rr.left,
+          rr.top,
+          rr.width,
+          rr.height,
+          () => `${Math.round(rr.width)} × ${Math.round(rr.height)}`,
+          340,
+          alive
+        );
+        if (!alive()) break;
+        visibleRows[i].style.opacity = "1";
+        exitPoints.push({ x: rr.right - 20, y: rr.bottom });
+      }
+      setSwarmCursorShape(railCur, "#38bdf8", "arrow");
+      for (let i = 2; i < visibleRows.length; i++) {
+        if (!alive()) break;
+        const rr = visibleRows[i].getBoundingClientRect();
+        railCur.classList.add("visible");
+        railCur.style.transform = `translate3d(${(rr.left + 26).toFixed(1)}px, ${(rr.top + 18).toFixed(1)}px, 0)`;
+        visibleRows[i].style.opacity = "1";
+        await sleepMs(125);
+      }
+      rows.forEach(r => { r.style.opacity = "1"; });
+      railCur.remove();
+    })();
+
+    const heroTask = (async () => {
+      const kickerRow = els.canvas.querySelector(".hero-kicker-row");
+      const verdictRow = els.canvas.querySelector(".verdict-row");
+      const evStrip = els.canvas.querySelector(".evidence-strip");
+      if (kickerRow) kickerRow.style.opacity = "1";
+
+      if (headline) {
+        await typeElementWithCursor(headline, detail, "#60a5fa", "Hero · Typist", 900, alive, pt => exitPoints.push(pt));
+      }
+      if (!alive()) return;
+      if (verdictRow) {
+        const vr = verdictRow.getBoundingClientRect();
+        const badgeCur = createSwarmCursorEl("#f472b6", "Verdict · Tag", "crosshair");
+        els.studioBuildLayer.appendChild(badgeCur);
+        await animateCursorDrawBox(
+          els.studioBuildLayer,
+          badgeCur,
+          "#f472b6",
+          vr.left,
+          vr.top,
+          Math.min(440, vr.width),
+          vr.height,
+          () => `VERDICT · TAG`,
+          320,
+          alive
+        );
+        badgeCur.remove();
+        verdictRow.style.opacity = "1";
+      }
+      if (!alive()) return;
+      if (prose) {
+        await typeElementWithCursor(prose, detail, "#22d3ee", "Grok · Narrator", 2300, alive, pt => exitPoints.push(pt));
+      }
+      if (!alive()) return;
+      if (evStrip) {
+        evStrip.style.opacity = "1";
+      }
+    })();
+
+    // ACT 2 (staggered +650ms): 7-Stage Policy Precedence Waterfall walked left-to-right
+    const precedenceTask = (async () => {
+      await sleepMs(650);
+      if (!alive()) return;
+      const pipeSec = els.canvas.querySelectorAll(".section-block")[0];
+      if (pipeSec) {
+        const sh = pipeSec.querySelector(".section-head");
+        if (sh) sh.style.opacity = "1";
+        const cStrip = pipeSec.querySelector(".cand-strip");
+        if (cStrip) cStrip.style.opacity = "1";
+      }
+      const steps = Array.from(els.canvas.querySelectorAll(".precedence-step"));
+      if (!steps.length) return;
+      const pCur = createSwarmCursorEl("#818cf8", "Policy · Rules", "crosshair");
+      els.studioBuildLayer.appendChild(pCur);
+      for (let i = 0; i < steps.length; i++) {
+        if (!alive()) break;
+        const sr = steps[i].getBoundingClientRect();
+        if (isOnScreen(sr)) {
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            pCur,
+            "#818cf8",
+            sr.left,
+            sr.top,
+            sr.width,
+            sr.height,
+            () => `RULE 0${i + 1}`,
+            195,
+            alive
+          );
+        }
+        steps[i].style.opacity = "1";
+        exitPoints.push({ x: sr.right, y: sr.bottom });
+      }
+      pCur.remove();
+    })();
+
+    // ACT 3 (staggered +1450ms): Provenance Stream Crosshair Boxes & Slow Pen Curves
+    const streamTask = (async () => {
+      await sleepMs(1450);
+      if (!alive() || !svgData) return;
+      const streamSec = els.canvas.querySelectorAll(".section-block")[1];
+      if (streamSec) {
+        const sh = streamSec.querySelector(".section-head");
+        if (sh) sh.style.opacity = "1";
+      }
+
+      async function drawSvgLane(boxes, color, badge) {
+        if (!boxes.length) return;
+        const cur = createSwarmCursorEl(color, badge, "crosshair");
+        els.studioBuildLayer.appendChild(cur);
+        for (const b of boxes) {
+          if (!alive()) break;
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            cur,
+            color,
+            b.left,
+            b.top,
+            b.width,
+            b.height,
+            () => `${b.svgW} × ${b.svgH}`,
+            boxes.length > 2 ? 320 : 440,
+            alive
+          );
+          if (!alive()) break;
+          b.g.style.opacity = "1";
+          exitPoints.push({ x: b.left + b.width, y: b.top + b.height });
+        }
+        cur.remove();
+      }
+
+      await Promise.all([
+        drawSvgLane(svgData.leftNodes, "#60a5fa", "CRM · Graph"),
+        drawSvgLane(svgData.centerNodes, "#34d399", "Policy · Engine"),
+        drawSvgLane(svgData.rightNodes, "#a78bfa", "Watchlist · Shield"),
+      ]);
+      if (!alive()) return;
+
+      const penLeft = createSwarmCursorEl("#60a5fa", "Pen · Link", "pen");
+      const penRight = createSwarmCursorEl("#a78bfa", "Pen · Link", "pen");
+      els.studioBuildLayer.appendChild(penLeft);
+      els.studioBuildLayer.appendChild(penRight);
+      penLeft.classList.add("visible");
+      penRight.classList.add("visible");
+
+      const pathDur = 920;
+      const pStart = performance.now();
+      await new Promise(resolve => {
+        function tickPaths(now) {
+          if (!alive()) { resolve(); return; }
+          const t = Math.min(1, (now - pStart) / pathDur);
+          const p = 1 - Math.pow(1 - t, 1.9);
+          svgData.pathEls.forEach((pe, idx) => {
+            const len = pe.getTotalLength();
+            pe.style.strokeDashoffset = `${(1 - p) * len}`;
+            if (idx === 0 || idx === svgData.leftNodes.length) {
+              const pt = pe.getPointAtLength(p * len);
+              const sc = svgData.toScreen(pt.x, pt.y);
+              const targetPen = idx === 0 ? penLeft : penRight;
+              targetPen.style.transform = `translate3d(${(sc.x - 2).toFixed(1)}px, ${(sc.y - 16).toFixed(1)}px, 0)`;
+              exitPoints.push({ x: sc.x, y: sc.y });
+            }
+          });
+          if (t < 1) requestAnimationFrame(tickPaths);
+          else resolve();
+        }
+        requestAnimationFrame(tickPaths);
+      });
+
+      penLeft.remove();
+      penRight.remove();
+      if (!alive()) return;
+      svgData.pathEls.forEach(pe => {
+        const orig = pe.getAttribute("data-orig-dash");
+        if (orig) pe.setAttribute("stroke-dasharray", orig);
+        else pe.removeAttribute("stroke-dasharray");
+        pe.style.strokeDasharray = "";
+        pe.style.strokeDashoffset = "";
+      });
+      svgData.pulseEls.forEach(c => { c.style.opacity = "1"; });
+    })();
+
+    // ACT 4 (staggered +2800ms): Entity Comparison Ledger + Tail Sections
+    const ledgerTask = (async () => {
+      await sleepMs(2800);
+      if (!alive()) return;
+      const allSections = Array.from(els.canvas.querySelectorAll(".section-block"));
+      const ledgerSec = allSections[2];
+      if (ledgerSec) {
+        const sh = ledgerSec.querySelector(".section-head");
+        const thead = ledgerSec.querySelector("thead");
+        if (sh) sh.style.opacity = "1";
+        if (thead) thead.style.opacity = "1";
+      }
+      const rows = Array.from(els.canvas.querySelectorAll(".ledger tbody tr"));
+      const lCur = createSwarmCursorEl("#2dd4bf", "Ledger · Auditor", "crosshair");
+      els.studioBuildLayer.appendChild(lCur);
+      for (const row of rows) {
+        if (!alive()) break;
+        const rr = row.getBoundingClientRect();
+        if (isOnScreen(rr)) {
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            lCur,
+            "#2dd4bf",
+            rr.left,
+            rr.top,
+            rr.width,
+            rr.height,
+            () => `${Math.round(rr.width)} × ${Math.round(rr.height)}`,
+            260,
+            alive
+          );
+          exitPoints.push({ x: rr.left + rr.width * 0.65, y: rr.top + rr.height * 0.5 });
+        }
+        row.style.opacity = "1";
+      }
+      lCur.remove();
+      // Reveal any remaining below-fold sections smoothly
+      els.canvas.querySelectorAll(".section-block > *").forEach(el => { el.style.opacity = "1"; });
+    })();
+
+    await Promise.all([railTask, heroTask, precedenceTask, streamTask, ledgerTask]);
+    els.studioBuildLayer.innerHTML = "";
+    flockState.building = false;
+    restoreStudioStatic();
+    if (exitPoints.length) seedFlockPositions(exitPoints.slice(-10));
+    updateFlockVisibility();
+  }
+
+  function pulseVortex(isHit, absorbedCount, totalCount) {
+    els.vortexCount.textContent = `${absorbedCount} / ${totalCount}`;
+    els.swarmVortex.classList.remove("absorb-cobalt", "absorb-hit");
+    void els.swarmVortex.offsetWidth;
+    els.swarmVortex.classList.add(isHit ? "absorb-hit" : "absorb-cobalt");
+    els.vortexRipple.classList.remove("go", "hit");
+    void els.vortexRipple.offsetWidth;
+    if (isHit) els.vortexRipple.classList.add("hit");
+    els.vortexRipple.classList.add("go");
+    setTimeout(() => {
+      els.swarmVortex.classList.remove("absorb-cobalt", "absorb-hit");
+    }, 260);
+  }
+
+  function computeOrbitalSlot(slotIdx, stageW, stageH, cardW, cardH) {
+    if (stageW < 740) {
+      const topSide = slotIdx % 2 === 0;
+      const vx = stageW / 2;
+      const vy = stageH / 2;
+      const left = Math.max(14, Math.min(stageW - cardW - 14, vx - cardW / 2));
+      const topMin = 56;
+      const topMax = Math.max(topMin, vy - 72 - cardH);
+      const botMin = Math.min(stageH - cardH - 16, vy + 72);
+      const top = topSide ? Math.max(topMin, topMax * 0.55) : Math.max(botMin, stageH - cardH - 22);
+      return {
+        left,
+        top: Math.max(54, Math.min(stageH - cardH - 14, top)),
+        swirlSign: topSide ? 1 : -1,
+      };
+    }
+    if (stageW < 920) {
+      const topSide = slotIdx % 2 === 0;
+      const cx = stageW * (0.28 + 0.22 * (slotIdx % 3));
+      const cy = topSide ? Math.max(84 + cardH / 2, stageH * 0.22) : Math.min(stageH - 28 - cardH / 2, stageH * 0.78);
+      return {
+        left: Math.max(16, Math.min(stageW - cardW - 16, cx - cardW / 2)),
+        top: Math.max(66, Math.min(stageH - cardH - 18, cy - cardH / 2)),
+        swirlSign: topSide ? 1 : -1,
+      };
+    }
+    const vx = stageW / 2;
+    const vy = stageH / 2;
+    const sidePad = 24;
+    const leftX = Math.max(sidePad, vx - 125 - cardW);
+    const rightX = Math.min(stageW - cardW - sidePad, vx + 125);
+    const centerX = vx - cardW / 2;
+    const upperY = Math.max(68, vy - cardH - 42);
+    const lowerY = Math.min(stageH - cardH - 22, vy + 42);
+    const topCenterY = Math.max(64, vy - 102 - cardH);
+    const bottomCenterY = Math.min(stageH - cardH - 20, vy + 102);
+
+    const coords = [
+      { left: Math.min(leftX, sidePad + (vx - sidePad - cardW) * 0.25), top: upperY, swirl: 1 },
+      { left: Math.max(rightX, vx + (stageW - sidePad - vx - cardW) * 0.75), top: upperY, swirl: -1 },
+      { left: centerX, top: bottomCenterY, swirl: 1 },
+      { left: Math.min(leftX, sidePad + (vx - sidePad - cardW) * 0.25), top: lowerY, swirl: -1 },
+      { left: Math.max(rightX, vx + (stageW - sidePad - vx - cardW) * 0.75), top: lowerY, swirl: 1 },
+      { left: centerX, top: topCenterY, swirl: -1 },
+    ];
+    const c = coords[slotIdx % coords.length];
+    return {
+      left: Math.max(sidePad, Math.min(stageW - cardW - sidePad, c.left)),
+      top: Math.max(64, Math.min(stageH - cardH - 18, c.top)),
+      swirlSign: c.swirl,
+    };
+  }
+
+  function extractTextLineRects(paraWrap, textNode) {
+    const wrapRect = paraWrap.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const rects = Array.from(range.getClientRects()).filter(r => r.width > 0.5 && r.height > 0.5);
+    const lines = [];
+    for (const r of rects) {
+      const top = r.top - wrapRect.top;
+      const left = r.left - wrapRect.left;
+      const right = left + r.width;
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(top - last.top) < 5) {
+        last.left = Math.min(last.left, left);
+        last.right = Math.max(last.right, right);
+        last.width = last.right - last.left;
+        last.height = Math.max(last.height, r.height);
+      } else {
+        lines.push({ left, top, right, width: r.width, height: r.height });
+      }
+    }
+    return lines;
+  }
+
+  function applyHighlightSpan(paraEl, fullText, quote) {
+    if (!quote) return;
+    const idx = fullText.toLowerCase().indexOf(quote.toLowerCase());
+    if (idx === -1) return;
+    const before = fullText.slice(0, idx);
+    const hitStr = fullText.slice(idx, idx + quote.length);
+    const after = fullText.slice(idx + quote.length);
+    paraEl.textContent = "";
+    if (before) paraEl.appendChild(document.createTextNode(before));
+    const mark = document.createElement("mark");
+    mark.className = "swarm-hl";
+    mark.textContent = hitStr;
+    paraEl.appendChild(mark);
+    if (after) paraEl.appendChild(document.createTextNode(after));
+  }
+
+  function cursorSvgMarkup(color, kind = "arrow") {
+    if (kind === "crosshair") {
+      return `<svg viewBox="0 0 18 18" fill="none">
+        <path d="M9 2V16M2 9H16" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="9" cy="9" r="2.2" fill="#020617" stroke="${color}" stroke-width="1.2"/>
+      </svg>`;
+    }
+    if (kind === "pen") {
+      return `<svg viewBox="0 0 18 18" fill="none">
+        <path d="M2 16L5.5 6.2L12.8 3.2L14.8 5.2L11.8 12.5L2 16Z" fill="${color}" stroke="#020617" stroke-width="1.2" stroke-linejoin="round"/>
+        <circle cx="9.2" cy="8.8" r="1.3" fill="#020617"/>
+      </svg>`;
+    }
+    return `<svg viewBox="0 0 18 18" fill="none">
+      <path d="M2 1.5L15.5 7.4L9.2 9.7L6.9 15.8L2 1.5Z" fill="${color}" stroke="#020617" stroke-width="1.3" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function createSwarmCursorEl(color, label, kind = "arrow") {
+    const el = document.createElement("div");
+    el.className = "swarm-cursor";
+    el.innerHTML = `
+      <span class="cursor-ico">${cursorSvgMarkup(color, kind)}</span>
+      <div class="swarm-cursor-badge" style="background:${color};">${esc(label)}</div>
+    `;
+    return el;
+  }
+
+  function setSwarmCursorShape(cursorEl, color, kind) {
+    const ico = cursorEl.querySelector(".cursor-ico");
+    if (ico) ico.innerHTML = cursorSvgMarkup(color, kind);
+  }
+
+  async function animateCursorDrawBox(layerEl, cursorEl, color, left, top, w, h, labelFmt, durationMs, isAlive) {
+    const draft = document.createElement("div");
+    draft.className = "swarm-draft-box";
+    draft.style.left = `${left.toFixed(1)}px`;
+    draft.style.top = `${top.toFixed(1)}px`;
+    draft.style.width = "2px";
+    draft.style.height = "2px";
+    draft.style.borderColor = color;
+    draft.innerHTML = `
+      <span class="swarm-draft-corner tl"></span>
+      <span class="swarm-draft-corner tr"></span>
+      <span class="swarm-draft-corner bl"></span>
+      <span class="swarm-draft-corner br"></span>
+      <span class="swarm-size-pill" style="background:${color};color:#03060f;">0 × 0</span>
+    `;
+    layerEl.appendChild(draft);
+    const pill = draft.querySelector(".swarm-size-pill");
+
+    setSwarmCursorShape(cursorEl, color, "crosshair");
+    cursorEl.classList.add("visible");
+    cursorEl.style.transform = `translate3d(${(left - 9).toFixed(1)}px, ${(top - 9).toFixed(1)}px, 0)`;
+
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function step(now) {
+        if (!isAlive()) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const p = 1 - Math.pow(1 - t, 2.4);
+        const cw = Math.max(4, w * p);
+        const ch = Math.max(4, h * p);
+        draft.style.width = `${cw.toFixed(1)}px`;
+        draft.style.height = `${ch.toFixed(1)}px`;
+        if (pill) pill.textContent = labelFmt(p, cw, ch);
+        cursorEl.style.transform = `translate3d(${(left + cw - 9).toFixed(1)}px, ${(top + ch - 9).toFixed(1)}px, 0)`;
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      }
+      requestAnimationFrame(step);
+    });
+    draft.remove();
+  }
+
+  async function animateSingleSwarmCard(trace, slotIdx, runToken, statsRef) {
+    if (runToken !== state.swarmToken) return;
+    const stageRect = els.swarmStage.getBoundingClientRect();
+    const stageW = stageRect.width || window.innerWidth;
+    const stageH = stageRect.height || (window.innerHeight - 48);
+
+    const card = document.createElement("div");
+    card.className = "swarm-card";
+    const isLlm = trace.source_mode === "LLM";
+    const color = CURSOR_PALETTE[slotIdx % CURSOR_PALETTE.length];
+    const roleShort = (trace.agent_role || "Swarm").replace(/^(Grok|Rule|Shield)\s*·\s*/i, "");
+    card.innerHTML = `
+      <div class="swarm-card-head">
+        <span class="swarm-mode-pill ${isLlm ? "llm" : "scan"}">${isLlm ? "LLM" : "SCAN"} · ${esc(trace.agent_role || "Swarm Reader")}</span>
+        <span class="swarm-rec-id">${esc(trace.record_id || trace.channel || "")}</span>
+      </div>
+      <div class="swarm-para-wrap">
+        <div class="swarm-sel-layer"></div>
+        <div class="swarm-caret"></div>
+        <p class="swarm-para"></p>
+      </div>
+      <div class="swarm-card-foot">
+        <span class="swarm-outcome">Reading paragraph…</span>
+        <span style="color:var(--ink-4);">${esc(trace.channel || "")}</span>
+      </div>
+    `;
+
+    const paraEl = card.querySelector(".swarm-para");
+    const textNode = document.createTextNode(trace.text || "");
+    paraEl.appendChild(textNode);
+
+    els.swarmCardsLayer.appendChild(card);
+    const cardW = card.offsetWidth || 280;
+    const cardH = card.offsetHeight || 140;
+    const slot = computeOrbitalSlot(slotIdx, stageW, stageH, cardW, cardH);
+    card.style.left = `${slot.left}px`;
+    card.style.top = `${slot.top}px`;
+
+    // Build dedicated swarm cursor for this card
+    const cursor = createSwarmCursorEl(color, roleShort, "crosshair");
+    els.swarmCursorsLayer.appendChild(cursor);
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    // Crosshair-draw the card bounding box before materializing (deliberate readable speed)
+    await animateCursorDrawBox(
+      els.swarmCardsLayer,
+      cursor,
+      color,
+      slot.left,
+      slot.top,
+      cardW,
+      cardH,
+      (p, cw, ch) => `${Math.round(cw)} × ${Math.round(ch)}`,
+      430,
+      () => runToken === state.swarmToken
+    );
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    setSwarmCursorShape(cursor, color, "arrow");
+    card.classList.add("visible");
+    await sleepMs(220);
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    // Measure actual line geometry now that card scale === 1
+    const paraWrap = card.querySelector(".swarm-para-wrap");
+    const selLayer = card.querySelector(".swarm-sel-layer");
+    const caret = card.querySelector(".swarm-caret");
+    const outcomeEl = card.querySelector(".swarm-outcome");
+
+    const lines = extractTextLineRects(paraWrap, textNode);
+    const selDivs = lines.map(ln => {
+      const d = document.createElement("div");
+      d.className = "swarm-sel-rect";
+      d.style.left = `${ln.left}px`;
+      d.style.top = `${ln.top}px`;
+      d.style.height = `${ln.height}px`;
+      d.style.width = "0px";
+      selLayer.appendChild(d);
+      return d;
+    });
+
+    const wrapRect = paraWrap.getBoundingClientRect();
+    const wrapOffsetX = wrapRect.left - stageRect.left;
+    const wrapOffsetY = wrapRect.top - stageRect.top;
+
+    // Total sweep weights proportional to each wrapped line's pixel length (slow readable pacing)
+    const totalW = lines.reduce((acc, ln) => acc + Math.max(12, ln.width), 0) || 1;
+    const sweepDuration = Math.min(2800, Math.max(1950, 1450 + lines.length * 320));
+    cursor.classList.add("visible");
+    if (lines.length > 0) caret.style.opacity = "1";
+
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function tick(now) {
+        if (runToken !== state.swarmToken) { resolve(); return; }
+        const rawT = Math.min(1, (now - startTs) / sweepDuration);
+        const targetDist = rawT * totalW;
+
+        let acc = 0;
+        let activeIdx = lines.length - 1;
+        let lineFrac = 1;
+        for (let i = 0; i < lines.length; i++) {
+          const w = Math.max(12, lines[i].width);
+          if (acc + w >= targetDist || i === lines.length - 1) {
+            activeIdx = i;
+            lineFrac = Math.max(0, Math.min(1, (targetDist - acc) / w));
+            break;
+          }
+          acc += w;
+        }
+
+        for (let i = 0; i < lines.length; i++) {
+          if (i < activeIdx) selDivs[i].style.width = `${lines[i].width}px`;
+          else if (i === activeIdx) selDivs[i].style.width = `${(lines[i].width * lineFrac).toFixed(1)}px`;
+          else selDivs[i].style.width = "0px";
+        }
+
+        if (lines[activeIdx]) {
+          const ln = lines[activeIdx];
+          const cxLocal = ln.left + ln.width * lineFrac;
+          const cyLocal = ln.top + ln.height * 0.68;
+          caret.style.left = `${cxLocal.toFixed(1)}px`;
+          caret.style.top = `${ln.top.toFixed(1)}px`;
+          caret.style.height = `${ln.height.toFixed(1)}px`;
+          const bob = Math.sin(rawT * Math.PI * 10) * 1.2;
+          cursor.style.transform = `translate3d(${(wrapOffsetX + cxLocal).toFixed(1)}px, ${(wrapOffsetY + cyLocal + bob).toFixed(1)}px, 0)`;
+        }
+
+        if (rawT < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    caret.style.opacity = "0";
+    cursor.classList.remove("visible");
+
+    if (trace.matched && trace.highlight_quote) {
+      selLayer.classList.add("faded");
+      applyHighlightSpan(paraEl, trace.text || "", trace.highlight_quote);
+      card.classList.add("has-hit");
+      outcomeEl.className = "swarm-outcome hit";
+      outcomeEl.textContent = `✓ ${trace.badge || "EXTRACTED"}`;
+      await sleepMs(960);
+    } else {
+      selLayer.classList.add("faded");
+      outcomeEl.className = "swarm-outcome empty";
+      outcomeEl.textContent = "· Scanned — No entity signal";
+      await sleepMs(540);
+    }
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    cursor.remove();
+
+    // Gravitational curved suction into the central Quantum Vortex
+    const cardCx0 = slot.left + cardW / 2;
+    const cardCy0 = slot.top + cardH / 2;
+    const vx = stageW / 2;
+    const vy = stageH / 2;
+    const dx = vx - cardCx0;
+    const dy = vy - cardCy0;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / dist) * slot.swirlSign;
+    const ny = (dx / dist) * slot.swirlSign;
+
+    card.classList.add("sucking");
+    const suckMs = 850;
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function suckStep(now) {
+        if (runToken !== state.swarmToken) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / suckMs);
+        const p = Math.pow(t, 2.15);
+        const swirl = Math.sin(Math.PI * t) * 44;
+        const tx = dx * p + nx * swirl;
+        const ty = dy * p + ny * swirl;
+        const sc = Math.max(0.05, 1 - 0.94 * p);
+        const rot = slot.swirlSign * 22 * p;
+        const op = t < 0.65 ? 1 - 0.15 * t : Math.max(0, 1 - (t - 0.65) / 0.35);
+        const blurPx = (p * 3.2).toFixed(2);
+        card.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0) rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+        card.style.opacity = op.toFixed(3);
+        card.style.filter = `blur(${blurPx}px)`;
+        if (t < 1) requestAnimationFrame(suckStep);
+        else resolve();
+      }
+      requestAnimationFrame(suckStep);
+    });
+
+    card.remove();
+    if (runToken !== state.swarmToken) return;
+    statsRef.absorbed += 1;
+    pulseVortex(Boolean(trace.matched), statsRef.absorbed, statsRef.total);
+  }
+
+  async function runSwarmSequence(datasetId, summaryPromise, forceReplay = false) {
+    const runToken = ++state.swarmToken;
+    const dsMeta = state.datasets.find(d => d.id === datasetId);
+    const dsLabel = dsMeta ? dsMeta.name : datasetId;
+
+    if (els.topbar) {
+      els.swarmStage.style.top = `${els.topbar.offsetHeight || 48}px`;
+    }
+    els.swarmCardsLayer.innerHTML = "";
+    els.swarmCursorsLayer.innerHTML = "";
+    els.swarmVortex.classList.remove("collapsing", "absorb-cobalt", "absorb-hit");
+    els.swarmHudTitle.textContent = `SWARM READER · ${dsLabel.toUpperCase()}`;
+    els.vortexCount.textContent = "0 / 6";
+    els.swarmStage.classList.remove("closing");
+    els.swarmStage.classList.add("active");
+    els.swarmStage.setAttribute("aria-hidden", "false");
+
+    const statsRef = { absorbed: 0, total: 6 };
+    const shownKeys = new Set();
+    let activePromises = [];
+    let nextSlot = 0;
+
+    let summaryData = null;
+    let summaryDone = false;
+    summaryPromise.then(data => {
+      summaryData = data;
+      summaryDone = true;
+    }).catch(() => { summaryDone = true; });
+
+    // If cold uncached load on live server, stream genuine reading events live
+    if (!state.staticMode && !forceReplay && !(dsMeta && dsMeta.loaded)) {
+      let pollTick = 0;
+      while (!summaryDone && runToken === state.swarmToken) {
+        try {
+          const pr = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/progress`);
+          if (pr.ok && runToken === state.swarmToken) {
+            const pdata = await pr.json();
+            const tot = pdata.total || (dsMeta && dsMeta.hit_count_hint) || 0;
+            const llmC = pdata.llm_calls || 0;
+            els.swarmHudTitle.textContent = `SWARM STREAM · ${pdata.processed}/${tot} HITS · ${llmC} GROK CALLS`;
+            const evts = pdata.events || [];
+            for (const evt of evts) {
+              if (shownKeys.size >= 6) break;
+              const k = `${evt.source_mode}|${(evt.text || "").slice(0, 60)}`;
+              if (!shownKeys.has(k)) {
+                shownKeys.add(k);
+                const slot = nextSlot++;
+                const p = sleepMs((slot % 3) * 220).then(() => animateSingleSwarmCard(evt, slot, runToken, statsRef));
+                activePromises.push(p);
+              }
+            }
+          }
+        } catch (_) {}
+        if (summaryDone || runToken !== state.swarmToken) break;
+        pollTick += 1;
+        await sleepMs(Math.min(350, 220 + pollTick * 20));
+      }
+    } else {
+      await summaryPromise;
+    }
+
+    if (runToken !== state.swarmToken) return;
+
+    const traces = (summaryData && summaryData.swarm_traces) ? summaryData.swarm_traces : [];
+    const remaining = traces.filter(t => !shownKeys.has(`${t.source_mode}|${(t.text || "").slice(0, 60)}`));
+
+    if (shownKeys.size === 0 && traces.length > 0) {
+      statsRef.total = traces.length;
+      els.vortexCount.textContent = `0 / ${statsRef.total}`;
+      const llmCount = (summaryData.llm_info && summaryData.llm_info.stats && summaryData.llm_info.stats.requests_total) || 0;
+      const modeTag = llmCount > 0 ? `${llmCount} GROK LLM CALLS` : "DETERMINISTIC SCAN";
+      els.swarmHudTitle.textContent = `SWARM READER · ${dsLabel.toUpperCase()} · ${modeTag}`;
+
+      const isNarrow = window.innerWidth < 740;
+      if (isNarrow) {
+        // On narrow phones show 2 cards per wave (top + bottom of Vortex) so cards never overlap
+        const pairs = [traces.slice(0, 2), traces.slice(2, 4), traces.slice(4, 6)].filter(g => g.length);
+        let pairPromises = [];
+        pairs.forEach((grp, pIdx) => {
+          grp.forEach((tr, cIdx) => {
+            pairPromises.push(
+              sleepMs(pIdx * 3600 + cIdx * 320).then(() => animateSingleSwarmCard(tr, cIdx, runToken, statsRef))
+            );
+          });
+        });
+        await Promise.all(pairPromises);
+      } else {
+        const wave1 = traces.slice(0, 3);
+        const wave2 = traces.slice(3, 6);
+        const w1Promises = wave1.map((tr, idx) =>
+          sleepMs(idx * 340).then(() => animateSingleSwarmCard(tr, idx, runToken, statsRef))
+        );
+        let w2Promises = [];
+        if (wave2.length > 0) {
+          w2Promises = wave2.map((tr, idx) =>
+            sleepMs(3150 + idx * 340).then(() => animateSingleSwarmCard(tr, idx + 3, runToken, statsRef))
+          );
+        }
+        await Promise.all([...w1Promises, ...w2Promises]);
+      }
+    } else {
+      const tail = remaining.slice(0, Math.max(0, 6 - shownKeys.size));
+      if (tail.length > 0) {
+        statsRef.total = shownKeys.size + tail.length;
+        els.vortexCount.textContent = `${statsRef.absorbed} / ${statsRef.total}`;
+        tail.forEach((tr, idx) => {
+          const slot = nextSlot++;
+          activePromises.push(
+            sleepMs(idx * 260).then(() => animateSingleSwarmCard(tr, slot, runToken, statsRef))
+          );
+        });
+      } else {
+        statsRef.total = Math.max(1, shownKeys.size);
+        els.vortexCount.textContent = `${statsRef.absorbed} / ${statsRef.total}`;
+      }
+      await Promise.all(activePromises);
+    }
+
+    if (runToken !== state.swarmToken) return;
+    els.swarmVortex.classList.add("collapsing");
+    await sleepMs(260);
+    if (runToken === state.swarmToken) closeSwarmStage(false, false);
+  }
+
   async function init() {
+    initFlockCursors();
     try {
-      const resp = await fetch("/api/datasets");
-      const data = await resp.json();
+      let data = null;
+      const apiResp = await fetch("/api/datasets").catch(() => null);
+      if (apiResp && apiResp.ok && (apiResp.headers.get("content-type") || "").includes("json")) {
+        data = await apiResp.json();
+        state.staticMode = false;
+      } else {
+        const stResp = await fetch("./static_data/datasets.json");
+        if (!stResp.ok) throw new Error(`HTTP ${stResp.status}`);
+        data = await stResp.json();
+        state.staticMode = true;
+      }
       state.datasets = data.datasets || [];
       els.datasetSelect.innerHTML = state.datasets
         .map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
@@ -1063,6 +2826,7 @@
         await loadDataset(firstId, reqHit);
       }
     } catch (err) {
+      closeSwarmStage(true, true);
       els.canvas.innerHTML = `<div class="loading-state" style="color:#fb7185;">Connection error: ${esc(err.message)}</div>`;
     }
   }
@@ -1070,12 +2834,23 @@
   async function loadDataset(datasetId, preferHitId = null) {
     state.currentDataset = datasetId;
     state.selectedCandidateIdx = 0;
+    state.studioBuildToken += 1;
+    state.pendingStudioBuild = true;
     closeSheet();
     els.railList.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving…</div>`;
     els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving "${esc(datasetId)}" dataset…</div>`;
 
-    const resp = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/summary`);
-    state.summary = await resp.json();
+    const summaryUrl = state.staticMode
+      ? `./static_data/${encodeURIComponent(datasetId)}/summary.json`
+      : `/api/datasets/${encodeURIComponent(datasetId)}/summary`;
+    const summaryPromise = fetch(summaryUrl).then(r => r.json());
+    const swarmAnim = runSwarmSequence(datasetId, summaryPromise, false);
+
+    const data = await summaryPromise;
+    if (state.currentDataset !== datasetId) return;
+    state.summary = data;
+    const meta = state.datasets.find(d => d.id === datasetId);
+    if (meta) meta.loaded = true;
 
     state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
     els.searchInput.value = "";
@@ -1087,7 +2862,15 @@
       rcs.map(([c, n]) => `<option value="${esc(c)}">${esc(c)} (${n})</option>`).join("");
 
     renderTopTelemetry();
-    applyFilters(preferHitId);
+    const hitTask = applyFilters(preferHitId);
+    await swarmAnim;
+    await hitTask;
+    if (state.currentDataset === datasetId && state.pendingStudioBuild && state.lastRenderedDetail) {
+      await sleepMs(140);
+      if (state.currentDataset === datasetId && state.pendingStudioBuild) {
+        await runStudioCursorBuild(state.lastRenderedDetail);
+      }
+    }
   }
 
   function renderTopTelemetry() {
@@ -1129,8 +2912,8 @@
     const st = sum.label_stats;
     const llm = sum.llm_info || {};
     const llmTag = llm.enabled
-      ? `<span style="color:var(--cobalt-bright);" title="LLM calls: ${(llm.stats && llm.stats.requests_total) || 0}">${esc(llm.backend)} · ${esc(llm.model)}</span>`
-      : `<span style="color:var(--ink-3);">OFFLINE</span>`;
+      ? `<span class="llm-tag" style="color:var(--cobalt-bright);" title="${esc(llm.backend)} · ${esc(llm.model)} · LLM calls: ${(llm.stats && llm.stats.requests_total) || 0}">${esc(llm.backend)} · ${esc(llm.model)}</span>`
+      : `<span class="llm-tag" style="color:var(--ink-3);">OFFLINE</span>`;
     if (st) {
       els.scoreReadout.innerHTML = `
         ${llmTag}
@@ -1169,20 +2952,23 @@
 
     renderRail();
 
-    if (preferHitId && list.some(h => h.hit_id === preferHitId)) selectHit(preferHitId);
-    else if (list.some(h => h.hit_id === state.selectedHitId)) selectHit(state.selectedHitId, false);
-    else if (list.length > 0) selectHit(list[0].hit_id);
+    if (preferHitId && list.some(h => h.hit_id === preferHitId)) return selectHit(preferHitId);
+    else if (list.some(h => h.hit_id === state.selectedHitId)) return selectHit(state.selectedHitId, false);
+    else if (list.length > 0) return selectHit(list[0].hit_id);
     else {
       state.selectedHitId = null;
       els.canvas.innerHTML = `<div class="loading-state">No hits match active filters.</div>`;
     }
+    return Promise.resolve();
   }
 
   function renderRail() {
     if (!state.filteredHits.length) {
+      els.railList.classList.remove("building-blank");
       els.railList.innerHTML = `<div class="loading-state" style="padding:24px;">Empty queue</div>`;
       return;
     }
+    els.railList.classList.toggle("building-blank", Boolean(state.pendingStudioBuild));
     els.railList.innerHTML = state.filteredHits.map(h => {
       const cls = decCls(h.decision);
       const act = h.hit_id === state.selectedHitId ? "active" : "";
@@ -1212,6 +2998,11 @@
   async function selectHit(hitId, showLoader = true) {
     state.selectedHitId = hitId;
     state.selectedCandidateIdx = 0;
+    if (!els.swarmStage.classList.contains("active")) {
+      state.studioBuildToken += 1;
+      flockState.building = false;
+      updateFlockVisibility();
+    }
 
     els.railList.querySelectorAll(".rail-row").forEach(r => {
       r.classList.toggle("active", r.getAttribute("data-hid") === hitId);
@@ -1228,11 +3019,26 @@
     let detail = state.detailCache.get(cacheKey);
     if (!detail) {
       if (showLoader) els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving ${esc(hitId)}…</div>`;
-      const resp = await fetch(`/api/datasets/${encodeURIComponent(state.currentDataset)}/hit/${encodeURIComponent(hitId)}`);
-      detail = await resp.json();
-      state.detailCache.set(cacheKey, detail);
+      if (state.staticMode) {
+        const hitMeta = state.summary && state.summary.hits && state.summary.hits.find(h => h.hit_id === hitId);
+        const chunkRel = hitMeta && hitMeta.chunk;
+        if (!chunkRel) throw new Error(`Missing static chunk for ${hitId}`);
+        const chunkUrl = `./static_data/${encodeURIComponent(state.currentDataset)}/${chunkRel}`;
+        if (!state.chunkPromises.has(chunkUrl)) {
+          state.chunkPromises.set(chunkUrl, fetch(chunkUrl).then(r => r.json()));
+        }
+        const chunkMap = await state.chunkPromises.get(chunkUrl);
+        Object.entries(chunkMap || {}).forEach(([hid, d]) => {
+          state.detailCache.set(`${state.currentDataset}:${hid}`, d);
+        });
+        detail = state.detailCache.get(cacheKey);
+      } else {
+        const resp = await fetch(`/api/datasets/${encodeURIComponent(state.currentDataset)}/hit/${encodeURIComponent(hitId)}`);
+        detail = await resp.json();
+        state.detailCache.set(cacheKey, detail);
+      }
     }
-    renderCanvas(detail);
+    if (detail) renderCanvas(detail);
   }
 
   function linkifyReason(text, recordsById) {
@@ -1480,6 +3286,8 @@
   }
 
   function renderCanvas(detail) {
+    state.lastRenderedDetail = detail;
+    els.canvas.classList.toggle("building-blank", Boolean(state.pendingStudioBuild));
     const out = detail.output;
     const resAlert = detail.resolved_alert;
     const hitProf = detail.hit_profile;
@@ -1882,6 +3690,43 @@
   });
 
   els.openCmdkBtn.addEventListener("click", openCmdk);
+  els.replaySwarmBtn.addEventListener("click", async () => {
+    if (state.currentDataset && state.summary) {
+      state.pendingStudioBuild = true;
+      renderRail();
+      if (state.lastRenderedDetail) renderCanvas(state.lastRenderedDetail);
+      await runSwarmSequence(state.currentDataset, Promise.resolve(state.summary), true);
+      if (state.pendingStudioBuild && state.lastRenderedDetail) {
+        await sleepMs(140);
+        if (state.pendingStudioBuild) await runStudioCursorBuild(state.lastRenderedDetail);
+      }
+    }
+  });
+  els.swarmSkipBtn.addEventListener("click", () => closeSwarmStage(false, true));
+  els.toggleFlockBtn.addEventListener("click", () => {
+    state.flockEnabled = !state.flockEnabled;
+    if (state.flockEnabled) wakeFlockAroundPointer();
+    updateFlockVisibility();
+  });
+  els.replayBuildBtn.addEventListener("click", () => {
+    if (state.lastRenderedDetail) {
+      state.pendingStudioBuild = true;
+      renderRail();
+      renderCanvas(state.lastRenderedDetail);
+      runStudioCursorBuild(state.lastRenderedDetail);
+    }
+  });
+  const onPointerActivity = e => {
+    flockState.mouse.x = e.clientX;
+    flockState.mouse.y = e.clientY;
+    flockState.mouse.active = true;
+    flockState.mouse.lastMove = performance.now();
+  };
+  window.addEventListener("pointermove", onPointerActivity, { passive: true });
+  window.addEventListener("pointerdown", onPointerActivity, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => {
+    flockState.mouse.active = false;
+  });
   els.cmdkOverlay.addEventListener("click", e => { if (e.target === els.cmdkOverlay) closeCmdk(); });
   els.cmdkInput.addEventListener("input", e => renderCmdkResults(e.target.value));
 
@@ -1891,7 +3736,17 @@
       els.cmdkOverlay.classList.contains("open") ? closeCmdk() : openCmdk();
       return;
     }
-    if (e.key === "Escape") { closeCmdk(); closeSheet(); return; }
+    if (e.key === "Escape") {
+      if (els.swarmStage.classList.contains("active")) { closeSwarmStage(false, true); return; }
+      if (flockState.building) {
+        state.studioBuildToken += 1;
+        flockState.building = false;
+        restoreStudioStatic();
+        updateFlockVisibility();
+        return;
+      }
+      closeCmdk(); closeSheet(); return;
+    }
     if (e.key === "/" && document.activeElement !== els.searchInput && !els.cmdkOverlay.classList.contains("open")) {
       e.preventDefault(); els.searchInput.focus(); return;
     }

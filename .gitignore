@@ -10,3 +10,4 @@ __pycache__/
 # test data
 system/tests/adversarial
 system/tests/sample_data
+docs/static_data/dev/

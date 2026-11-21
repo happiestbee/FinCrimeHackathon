@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EntityLens — Cobalt XAI Screening Studio</title>
+<style>
+  :root {
+    --void: #03060f;
+    --surface: #070c1a;
+    --surface-subtle: rgba(15, 23, 42, 0.42);
+    --glass: rgba(9, 15, 32, 0.82);
+    --hairline: rgba(148, 163, 184, 0.12);
+    --hairline-strong: rgba(148, 163, 184, 0.24);
+
+    --ink: #f8fafc;
+    --ink-2: #cbd5e1;
+    --ink-3: #64748b;
+    --ink-4: #475569;
+
+    --cobalt: #3b82f6;
+    --cobalt-bright: #60a5fa;
+    --indigo: #6366f1;
+    --cyan: #22d3ee;
+
+    --emerald: #10b981;
+    --emerald-soft: rgba(16, 185, 129, 0.14);
+    --crimson: #f43f5e;
+    --crimson-soft: rgba(244, 63, 94, 0.14);
+    --amber: #f59e0b;
+    --amber-soft: rgba(245, 158, 11, 0.14);
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--void);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Atmospheric Cobalt Nebula Backdrop */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 45% at 62% -10%, rgba(59, 130, 246, 0.16), transparent 72%),
+      radial-gradient(ellipse 45% 35% at 15% 100%, rgba(99, 102, 241, 0.09), transparent 70%);
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ── TOP BAR (48px Architectural Ribbon) ── */
+  .topbar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--hairline);
+    background: rgba(3, 6, 15, 0.72);
+    backdrop-filter: blur(14px);
+    flex-shrink: 0;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13.5px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .brand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, var(--cobalt), var(--cyan));
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    transform: rotate(45deg);
+  }
+  .sep-v {
+    width: 1px;
+    height: 16px;
+    background: var(--hairline-strong);
+  }
+
+  select.minimal-select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--ink-2);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 4px 18px 4px 2px;
+    max-width: clamp(140px, 19vw, 265px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    outline: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+    background-position: calc(100% - 8px) 11px, calc(100% - 4px) 11px;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+  }
+  select.minimal-select:hover { color: var(--ink); }
+  select.minimal-select option { background: #0a1022; color: var(--ink); }
+
+  /* Inline Telemetry Metrics */
+  .telemetry-strip {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    flex-shrink: 0;
+  }
+  .t-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 1.5px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .t-metric:hover { color: var(--ink); }
+  .t-metric.active { color: var(--ink); border-bottom-color: var(--cobalt-bright); }
+  .t-metric.active.diff { border-bottom-color: var(--emerald); }
+  .t-metric.active.same { border-bottom-color: var(--crimson); }
+  .t-metric.active.rev { border-bottom-color: var(--amber); }
+  .t-metric strong { color: var(--ink); font-weight: 600; }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .dot.diff { background: var(--emerald); box-shadow: 0 0 8px rgba(16, 185, 129, 0.7); }
+  .dot.same { background: var(--crimson); box-shadow: 0 0 8px rgba(244, 63, 94, 0.75); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 8px rgba(245, 158, 11, 0.7); }
+  .dot.cobalt { background: var(--cobalt-bright); box-shadow: 0 0 8px rgba(96, 165, 250, 0.7); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .score-readout {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .llm-tag {
+    max-width: clamp(78px, 11vw, 220px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+  .score-readout .ok { color: #34d399; font-weight: 600; }
+
+  .cmdk-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    color: var(--ink-2);
+    padding: 4px 9px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cmdk-trigger:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(96, 165, 250, 0.5);
+    color: var(--ink);
+  }
+  .cmdk-trigger.on {
+    border-color: rgba(96, 165, 250, 0.52);
+    background: rgba(59, 130, 246, 0.16);
+    color: var(--ink);
+  }
+  .cmdk-trigger.off .dot {
+    background: var(--ink-4);
+    box-shadow: none;
+  }
+  .kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--cobalt-bright);
+    letter-spacing: 0.04em;
+  }
+
+  /* Thin 2px Spectrum Bar Directly Under Topbar */
+  .spectrum-bar {
+    height: 2px;
+    width: 100%;
+    display: flex;
+    background: rgba(148, 163, 184, 0.08);
+    flex-shrink: 0;
+  }
+  .spec-diff { background: var(--emerald); transition: width 0.35s ease; }
+  .spec-same { background: var(--crimson); transition: width 0.35s ease; }
+  .spec-rev { background: var(--amber); transition: width 0.35s ease; }
+
+  /* ── MAIN SPLIT SHELL ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 316px 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ── LEFT TRIAGE RAIL (Hairline, No Boxy Cards) ── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--hairline);
+    background: rgba(5, 9, 20, 0.55);
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .rail-controls {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rail-search {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline-strong);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    padding: 4px 0 6px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .rail-search:focus { border-bottom-color: var(--cobalt-bright); }
+  .rail-search::placeholder { color: var(--ink-4); }
+
+  .rail-subfilters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 78px auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  .rail-subfilters select {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--ink-3);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    outline: none;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rail-subfilters select:hover { color: var(--ink-2); }
+  .rail-subfilters select option { background: #0a1022; color: var(--ink); }
+
+  .check-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--ink-3);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .check-inline:hover { color: var(--ink-2); }
+
+  .rail-meta {
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+  }
+  .reset-link {
+    background: none;
+    border: none;
+    color: var(--cobalt-bright);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .reset-link:hover { text-decoration: underline; }
+
+  .rail-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .rail-list::-webkit-scrollbar { width: 4px; }
+  .rail-list::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.18); }
+
+  .rail-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+    border-left: 2px solid transparent;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .rail-row:hover { background: rgba(59, 130, 246, 0.05); }
+  .rail-row.active {
+    background: rgba(59, 130, 246, 0.09);
+    border-left-color: var(--cobalt-bright);
+  }
+  .rr-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 3px;
+  }
+  .rr-id {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .rr-type {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .rr-names {
+    font-size: 12px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .rr-sub {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  /* ── RIGHT OPEN-CANVAS WORKSPACE ── */
+  .canvas {
+    position: relative;
+    overflow-y: auto;
+    min-height: 0;
+    scroll-behavior: smooth;
+  }
+  .canvas::-webkit-scrollbar { width: 6px; }
+  .canvas::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.18); }
+
+  .canvas-inner {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 28px 36px 72px;
+  }
+
+  /* Editorial Hero Section (No Box!) */
+  .hero {
+    position: relative;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .hero-ambient {
+    position: absolute;
+    top: -40px;
+    left: -36px;
+    right: -36px;
+    height: 180px;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.22;
+    transition: background 0.35s ease;
+  }
+  .hero-ambient.diff { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(16, 185, 129, 0.45), transparent 72%); }
+  .hero-ambient.same { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(244, 63, 94, 0.5), transparent 72%); }
+  .hero-ambient.rev { background: radial-gradient(ellipse 60% 80% at 25% 0%, rgba(245, 158, 11, 0.45), transparent 72%); }
+
+  .hero-kicker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ghost-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 0;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .ghost-btn:hover { color: var(--cobalt-bright); border-bottom-color: var(--cobalt-bright); }
+
+  .hero-headline {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 0 14px;
+    font-size: 27px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+  .hero-op {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 24px;
+    padding: 0 2px;
+  }
+  .hero-op.diff { color: var(--emerald); }
+  .hero-op.same { color: var(--crimson); }
+  .hero-op.rev { color: var(--amber); }
+  .hero-hit-name { color: var(--ink-2); font-weight: 400; }
+
+  .verdict-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .verdict-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .verdict-label.diff { color: #34d399; }
+  .verdict-label.same { color: #fb7185; }
+  .verdict-label.rev { color: #fbbf24; }
+
+  .code-tag {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--cobalt-bright);
+    padding: 1px 0;
+    border-bottom: 1px dashed rgba(96, 165, 250, 0.45);
+  }
+  .meta-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  .narrative-prose {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-2);
+    max-width: 880px;
+    margin: 0;
+  }
+  .ev-inline {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(96, 165, 250, 0.55);
+    color: #93c5fd;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 0 1px;
+    cursor: pointer;
+    transition: color 0.12s, background 0.12s;
+  }
+  .ev-inline:hover { color: #fff; background: rgba(59, 130, 246, 0.22); }
+
+  .evidence-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .ev-link {
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.26);
+    border-radius: 3px;
+    color: #93c5fd;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ev-link:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--cobalt-bright);
+    color: #fff;
+  }
+
+  /* ── HORIZONTAL POLICY PRECEDENCE PIPELINE ── */
+  .section-block {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .precedence-track {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .p-step {
+    padding: 10px 10px 11px;
+    border-right: 1px solid var(--hairline);
+    position: relative;
+    transition: background 0.15s;
+  }
+  .p-step:last-child { border-right: none; }
+  .p-step.fired { background: rgba(59, 130, 246, 0.08); }
+  .p-step.fired.diff { background: rgba(16, 185, 129, 0.08); }
+  .p-step.fired.same { background: rgba(244, 63, 94, 0.08); }
+  .p-step.fired.rev { background: rgba(245, 158, 11, 0.08); }
+  .p-step.fired::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--cobalt-bright);
+  }
+  .p-step.fired.diff::after { background: var(--emerald); }
+  .p-step.fired.same::after { background: var(--crimson); }
+  .p-step.fired.rev::after { background: var(--amber); }
+
+  .p-num {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-4);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .p-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .p-step.fired .p-name { color: var(--ink); }
+  .p-state {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    margin-top: 3px;
+    color: var(--ink-4);
+  }
+  .p-step.fired.diff .p-state { color: #34d399; font-weight: 600; }
+  .p-step.fired.same .p-state { color: #fb7185; font-weight: 600; }
+  .p-step.fired.rev .p-state { color: #fbbf24; font-weight: 600; }
+
+  /* Ambiguous Multi-Candidate Selector Strip */
+  .cand-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .cand-tab {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 3px;
+    padding: 8px 12px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--ink-2);
+    transition: all 0.15s;
+  }
+  .cand-tab:hover { border-color: var(--cobalt-bright); }
+  .cand-tab.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--cobalt-bright);
+  }
+
+  /* ── FULL-BLEED ANIMATED SVG PROVENANCE STREAM ── */
+  .stream-stage {
+    width: 100%;
+    overflow-x: auto;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+    background-size: 22px 22px;
+    padding: 8px 0;
+  }
+  .stream-svg {
+    width: 100%;
+    min-width: 780px;
+    display: block;
+  }
+  .s-node { cursor: pointer; transition: opacity 0.15s; }
+  .s-node:hover rect { stroke-width: 2 !important; filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.45)); }
+
+  /* ── OPEN-CANVAS HAIRLINE T-ACCOUNT LEDGER ── */
+  .ledger {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ledger th {
+    text-align: left;
+    padding: 0 12px 10px 0;
+    border-bottom: 1px solid var(--hairline-strong);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .ledger td {
+    padding: 13px 12px 13px 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+    font-size: 13px;
+  }
+  .ledger tr:last-child td { border-bottom: none; }
+  .ledger-dim {
+    width: 145px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .ledger-op {
+    width: 72px;
+    text-align: center !important;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .tier-tag {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--cobalt-bright);
+    margin-right: 6px;
+  }
+  .sub-line {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin-top: 3px;
+  }
+
+  /* ── SEARCH SHIELD & TRAIL EDITORIAL SECTIONS ── */
+  .shield-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 180px;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hairline);
+    align-items: start;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .shield-row:hover { background: rgba(59, 130, 246, 0.04); }
+  .shield-row:last-child { border-bottom: none; }
+  .hl-phrase {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.18);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .hl-country {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.16);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .hl-date {
+    color: #fcd34d;
+    border-bottom: 1px dashed rgba(245, 158, 11, 0.6);
+  }
+
+  .trail-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+  }
+  .trail-cell {
+    background: #050915;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .trail-cell:hover { background: #0a1226; }
+  .trail-cell.excluded { opacity: 0.55; }
+
+  /* ── SLIDE-OVER FROSTED COBALT FORENSIC SHEET ── */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 4, 12, 0.45);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .forensic-sheet {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 460px;
+    max-width: 92vw;
+    z-index: 50;
+    background: var(--glass);
+    backdrop-filter: blur(22px);
+    border-left: 1px solid rgba(96, 165, 250, 0.24);
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .forensic-sheet.open { transform: translateX(0); }
+
+  .sheet-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 32px;
+  }
+  .sheet-kv {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 8px 12px;
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+  .sheet-k { font-family: var(--font-mono); color: var(--ink-3); font-size: 11px; }
+  .sheet-v { color: var(--ink); word-break: break-word; }
+
+  pre.code-block {
+    margin: 0;
+    padding: 12px;
+    background: rgba(2, 5, 14, 0.8);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── ⌘K COMMAND PALETTE ── */
+  .cmdk-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(2, 4, 12, 0.65);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
+  }
+  .cmdk-overlay.open { display: flex; }
+  .cmdk-box {
+    width: 560px;
+    max-width: 92vw;
+    background: rgba(8, 14, 30, 0.94);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 6px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
+    overflow: hidden;
+  }
+  .cmdk-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+  }
+  .cmdk-results {
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .cmdk-item {
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+  }
+  .cmdk-item:hover { background: rgba(59, 130, 246, 0.14); }
+
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 64px 20px;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .pulse-ring {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--cobalt);
+    border-top-color: transparent;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SWARM AI READER + QUANTUM VORTEX OVERLAY ── */
+  .swarm-stage {
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.16) 0%, rgba(3, 6, 15, 0.94) 55%, rgba(2, 4, 10, 0.98) 100%);
+    backdrop-filter: blur(18px);
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .swarm-stage.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .swarm-stage.closing {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .swarm-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(96, 165, 250, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96, 165, 250, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.85) 20%, transparent 78%);
+    pointer-events: none;
+  }
+  .swarm-hud {
+    position: absolute;
+    top: 16px;
+    left: 22px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 55;
+    pointer-events: none;
+  }
+  .swarm-hud-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(9, 15, 32, 0.78);
+    border: 1px solid rgba(96, 165, 250, 0.24);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    backdrop-filter: blur(10px);
+  }
+  .swarm-hud-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+    animation: swarmPulse 1.3s ease-in-out infinite;
+  }
+  @keyframes swarmPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.8); }
+  }
+  .swarm-skip-btn {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .swarm-skip-btn:hover {
+    color: var(--ink);
+    border-color: var(--cobalt-bright);
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  /* Central Quantum Vortex Portal */
+  .swarm-vortex {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 176px;
+    height: 176px;
+    transform: translate(-50%, -50%) scale(1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 48;
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+  }
+  .swarm-vortex.collapsing {
+    transform: translate(-50%, -50%) scale(0.08);
+    opacity: 0;
+  }
+  .vortex-accretion {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(59, 130, 246, 0.0) 0deg,
+      rgba(96, 165, 250, 0.55) 75deg,
+      rgba(34, 211, 238, 0.85) 130deg,
+      rgba(99, 102, 241, 0.2) 210deg,
+      rgba(59, 130, 246, 0.6) 290deg,
+      rgba(59, 130, 246, 0.0) 360deg
+    );
+    mask-image: radial-gradient(circle, transparent 43%, #000 56%, #000 66%, transparent 74%);
+    animation: vortexSpin 2.6s linear infinite;
+    filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.4));
+  }
+  .vortex-ring-inner {
+    position: absolute;
+    inset: 22px;
+    border-radius: 50%;
+    border: 1px dashed rgba(96, 165, 250, 0.45);
+    animation: vortexSpinRev 6s linear infinite;
+  }
+  .vortex-core {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #010309 42%, rgba(8, 17, 40, 0.96) 76%, rgba(34, 211, 238, 0.35) 100%);
+    box-shadow:
+      inset 0 0 26px rgba(59, 130, 246, 0.45),
+      0 0 38px rgba(59, 130, 246, 0.28);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: transform 0.18s ease, box-shadow 0.2s ease;
+  }
+  .swarm-vortex.absorb-cobalt .vortex-core {
+    transform: scale(1.1);
+    box-shadow: inset 0 0 32px rgba(96, 165, 250, 0.75), 0 0 54px rgba(59, 130, 246, 0.6);
+  }
+  .swarm-vortex.absorb-hit .vortex-core {
+    transform: scale(1.14);
+    box-shadow: inset 0 0 36px rgba(34, 211, 238, 0.85), 0 0 60px rgba(16, 185, 129, 0.55);
+  }
+  .vortex-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--cobalt-bright);
+    text-transform: uppercase;
+  }
+  .vortex-count {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+  .vortex-ripple {
+    position: absolute;
+    inset: 34px;
+    border-radius: 50%;
+    border: 2px solid rgba(34, 211, 238, 0.75);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .vortex-ripple.hit { border-color: rgba(16, 185, 129, 0.85); }
+  .vortex-ripple.go {
+    animation: vortexRipple 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes vortexSpin { to { transform: rotate(360deg); } }
+  @keyframes vortexSpinRev { to { transform: rotate(-360deg); } }
+  @keyframes vortexRipple {
+    0% { transform: scale(0.75); opacity: 0.9; }
+    100% { transform: scale(1.95); opacity: 0; }
+  }
+
+  /* Swarm Floating Paragraph Cards */
+  .swarm-cards-layer,
+  .swarm-cursors-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .swarm-cursors-layer { z-index: 60; }
+  .swarm-card {
+    position: absolute;
+    width: clamp(248px, 24vw, 326px);
+    padding: 12px 14px 11px;
+    border-radius: 10px;
+    background: rgba(9, 15, 32, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(59, 130, 246, 0.08);
+    backdrop-filter: blur(14px);
+    transform-origin: center center;
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+    transition: opacity 0.34s ease, transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+    will-change: transform, opacity, filter;
+    z-index: 50;
+  }
+  .swarm-card.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .swarm-card.has-hit {
+    border-color: rgba(34, 211, 238, 0.55);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.58), 0 0 28px rgba(34, 211, 238, 0.16);
+  }
+  .swarm-card.sucking {
+    transition: none;
+    z-index: 49;
+  }
+  .swarm-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .swarm-mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .swarm-mode-pill.llm {
+    background: rgba(99, 102, 241, 0.22);
+    border: 1px solid rgba(129, 140, 248, 0.42);
+    color: #c7d2fe;
+  }
+  .swarm-mode-pill.scan {
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    color: #93c5fd;
+  }
+  .swarm-rec-id {
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .swarm-para-wrap {
+    position: relative;
+    margin: 0;
+  }
+  .swarm-sel-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.24s ease;
+  }
+  .swarm-sel-layer.faded { opacity: 0; }
+  .swarm-sel-rect {
+    position: absolute;
+    background: rgba(13, 153, 255, 0.28);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .swarm-caret {
+    position: absolute;
+    width: 1.5px;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    animation: caretBlink 0.75s steps(1) infinite;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+  }
+  @keyframes caretBlink { 50% { opacity: 0.15; } }
+  .swarm-para {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.56;
+    color: var(--ink-2);
+    word-break: break-word;
+  }
+  mark.swarm-hl {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.34), rgba(34, 211, 238, 0.32));
+    color: #f8fafc;
+    border-bottom: 1.5px solid #22d3ee;
+    border-radius: 2px;
+    padding: 0;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.26);
+    animation: hlPop 0.32s ease;
+  }
+  @keyframes hlPop {
+    0% { background: rgba(34, 211, 238, 0.65); }
+    100% { background: linear-gradient(90deg, rgba(16, 185, 129, 0.34), rgba(34, 211, 238, 0.32)); }
+  }
+  .swarm-card-foot {
+    margin-top: 8px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .swarm-outcome {
+    color: var(--ink-3);
+    transition: color 0.2s ease, transform 0.22s ease;
+  }
+  .swarm-outcome.hit {
+    color: #34d399;
+    font-weight: 600;
+    transform: translateX(0);
+  }
+  .swarm-outcome.empty {
+    color: var(--ink-3);
+  }
+
+  /* Swarm Multiplayer Cursor (califa/swarm-site style) */
+  .swarm-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+  }
+  .swarm-cursor.visible { opacity: 1; }
+  .swarm-cursor svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+  }
+  .swarm-cursor-badge {
+    position: absolute;
+    left: 15px;
+    top: 14px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: #03060f;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Figma Crosshair Draft Box (califa/swarm-site style) */
+  .swarm-draft-box {
+    position: absolute;
+    border: 1px dashed rgba(96, 165, 250, 0.85);
+    background: rgba(59, 130, 246, 0.07);
+    pointer-events: none;
+    box-sizing: border-box;
+    z-index: 48;
+  }
+  .swarm-draft-corner {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: #f8fafc;
+    border: 1px solid #3b82f6;
+  }
+  .swarm-draft-corner.tl { left: -3px; top: -3px; }
+  .swarm-draft-corner.tr { right: -3px; top: -3px; }
+  .swarm-draft-corner.bl { left: -3px; bottom: -3px; }
+  .swarm-draft-corner.br { right: -3px; bottom: -3px; }
+  .swarm-size-pill {
+    position: absolute;
+    left: 50%;
+    bottom: -20px;
+    transform: translateX(-50%);
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #2563eb;
+    color: #f8fafc;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Studio Cursor Builder & Ambient Flocking Layers */
+  .studio-build-layer,
+  .swarm-flock-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .studio-build-layer { z-index: 44; }
+  .swarm-flock-layer {
+    z-index: 41;
+    transition: opacity 0.25s ease;
+  }
+  .swarm-flock-layer.hidden { opacity: 0; }
+  .swarm-flock-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.84;
+    will-change: transform;
+    pointer-events: none;
+  }
+  .swarm-flock-cursor svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.65));
+  }
+  .swarm-flock-badge {
+    position: absolute;
+    left: 11px;
+    top: 11px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #03060f;
+    white-space: nowrap;
+    opacity: 0.92;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Blank canvas mode while Studio Swarm Builders paint the entire workspace */
+  #railList.building-blank .rail-row {
+    opacity: 0;
+    transition: opacity 0.24s ease;
+  }
+  #canvas.building-blank .hero-kicker-row,
+  #canvas.building-blank .hero-headline,
+  #canvas.building-blank .verdict-row,
+  #canvas.building-blank .narrative-prose,
+  #canvas.building-blank .evidence-strip,
+  #canvas.building-blank .section-head,
+  #canvas.building-blank .precedence-step,
+  #canvas.building-blank .cand-strip,
+  #canvas.building-blank .ledger thead,
+  #canvas.building-blank .ledger tbody tr,
+  #canvas.building-blank .section-block > :not(.section-head):not(.precedence-track):not(.ledger):not(.stream-stage) {
+    opacity: 0;
+    transition: opacity 0.26s ease;
+  }
+  #canvas.building-blank .stream-stage .s-node {
+    opacity: 0;
+  }
+
+  /* Bottom-Right Floating Swarm Controls Dock */
+  .swarm-dock {
+    position: fixed;
+    right: 18px;
+    bottom: 14px;
+    z-index: 43;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(7, 12, 26, 0.86);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  }
+  .dock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .dock-btn:hover { color: var(--ink); background: rgba(59, 130, 246, 0.16); }
+  .dock-btn.on { color: #93c5fd; background: rgba(59, 130, 246, 0.22); }
+  .prose-typing-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 1.05em;
+    vertical-align: -0.15em;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    margin-left: 1px;
+    animation: caretBlink 0.7s steps(1) infinite;
+  }
+
+  @media (max-width: 980px) {
+    html, body { height: auto; overflow: auto; }
+    .app { height: auto; overflow: visible; }
+    .shell { grid-template-columns: 1fr; overflow: visible; }
+    .rail { max-height: 260px; border-right: none; border-bottom: 1px solid var(--hairline); }
+    .precedence-track { grid-template-columns: repeat(2, 1fr); }
+    .telemetry-strip { display: none; }
+    .canvas-inner { padding: 20px 18px 64px; }
+  }
+
+  @media (max-width: 720px) {
+    .topbar {
+      height: auto;
+      min-height: 48px;
+      flex-wrap: wrap;
+      padding: 8px 12px;
+      gap: 8px;
+    }
+    .brand-group { flex: 1 1 auto; min-width: 0; gap: 8px; }
+    select.minimal-select { max-width: calc(100vw - 175px); font-size: 12px; }
+    .topbar-right { width: 100%; justify-content: space-between; gap: 8px; }
+    .score-readout { font-size: 10px; gap: 5px; overflow: hidden; text-overflow: ellipsis; }
+    .llm-tag { max-width: 92px; }
+    .hero-headline { font-size: 22px; }
+    .ledger { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .forensic-sheet { width: 100vw; max-width: 100vw; }
+    .swarm-hud { top: 10px; left: 10px; right: 10px; gap: 8px; flex-wrap: wrap; }
+    .swarm-hud-left { font-size: 10px; padding: 5px 10px; max-width: 68vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .swarm-skip-btn { font-size: 10px; padding: 5px 9px; }
+    .swarm-vortex { width: 124px; height: 124px; }
+    .vortex-core { width: 72px; height: 72px; }
+    .vortex-label { font-size: 7.5px; }
+    .vortex-count { font-size: 11px; }
+    .swarm-card { width: min(332px, calc(100vw - 28px)); padding: 10px 12px; }
+    .swarm-dock { right: 10px; bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ARCHITECTURAL TOP RIBBON -->
+  <header class="topbar">
+    <div class="brand-group">
+      <div class="brand-mark">
+        <span class="brand-dot"></span>
+        <span>EntityLens</span>
+      </div>
+      <span class="sep-v"></span>
+      <select id="datasetSelect" class="minimal-select" aria-label="Dataset"></select>
+    </div>
+
+    <div class="telemetry-strip" id="telemetryStrip"></div>
+
+    <div class="topbar-right">
+      <div class="score-readout" id="scoreReadout"></div>
+      <button class="cmdk-trigger on" id="toggleFlockBtn" title="Wake or hide mouse-following swarm cursors">
+        <span class="dot cobalt" id="swarmTopDot" style="width:6px;height:6px;border-radius:50%;display:inline-block;"></span>
+        <span id="swarmTopLabel">Swarm</span>
+      </button>
+      <button class="cmdk-trigger" id="openCmdkBtn" title="Open Command Palette (⌘K)">
+        <span>Jump</span>
+        <span class="kbd">⌘K</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2PX CONTINUOUS SPECTRUM LINE -->
+  <div class="spectrum-bar" id="spectrumBar">
+    <div class="spec-diff" id="specDiff" style="width:0%"></div>
+    <div class="spec-same" id="specSame" style="width:0%"></div>
+    <div class="spec-rev" id="specRev" style="width:0%"></div>
+  </div>
+
+  <!-- SPLIT WORKSPACE -->
+  <div class="shell">
+    <!-- WHISPER-QUIET LEFT TRIAGE RAIL -->
+    <aside class="rail">
+      <div class="rail-controls">
+        <input id="searchInput" class="rail-search" type="text" placeholder="Filter hits, names, CUS-, reasons…  (/)" />
+        <div class="rail-subfilters">
+          <select id="reasonFilter" aria-label="Reason Code Filter">
+            <option value="ALL">All reason codes</option>
+          </select>
+          <select id="resStatusFilter" aria-label="Resolution Status">
+            <option value="ALL">All links</option>
+            <option value="LINKED">LINKED</option>
+            <option value="INFERRED_UNIQUE">INFERRED</option>
+            <option value="AMBIGUOUS">AMBIGUOUS</option>
+            <option value="UNRESOLVED">UNRESOLVED</option>
+          </select>
+          <label class="check-inline" title="Show labeled hits only">
+            <input type="checkbox" id="labeledOnlyChk" /> Labeled
+          </label>
+        </div>
+      </div>
+      <div class="rail-meta">
+        <span id="railCount">LOADING…</span>
+        <button id="resetBtn" class="reset-link" style="display:none;">RESET</button>
+      </div>
+      <div class="rail-list" id="railList"></div>
+    </aside>
+
+    <!-- OPEN-CANVAS EDITORIAL INSPECTOR -->
+    <main class="canvas" id="canvas">
+      <div class="loading-state"><span class="pulse-ring"></span> Initializing Cobalt XAI Studio…</div>
+    </main>
+  </div>
+</div>
+
+<!-- SWARM AI READER + QUANTUM VORTEX STAGE -->
+<div class="swarm-stage" id="swarmStage" aria-hidden="true">
+  <div class="swarm-grid-bg"></div>
+  <div class="swarm-hud">
+    <div class="swarm-hud-left">
+      <span class="swarm-hud-dot"></span>
+      <span id="swarmHudTitle">SWARM READER · INITIALIZING</span>
+    </div>
+    <button class="swarm-skip-btn" id="swarmSkipBtn" type="button">SKIP ANIMATION · ESC</button>
+  </div>
+  <div class="swarm-vortex" id="swarmVortex">
+    <div class="vortex-accretion"></div>
+    <div class="vortex-ring-inner"></div>
+    <div class="vortex-ripple" id="vortexRipple"></div>
+    <div class="vortex-core">
+      <div class="vortex-label">ENTITY ENGINE</div>
+      <div class="vortex-count" id="vortexCount">0 / 0</div>
+    </div>
+  </div>
+  <div class="swarm-cards-layer" id="swarmCardsLayer"></div>
+  <div class="swarm-cursors-layer" id="swarmCursorsLayer"></div>
+</div>
+
+<!-- STUDIO CURSOR-BUILDER & PERSISTENT MOUSE-FOLLOW FLOCK LAYERS -->
+<div class="studio-build-layer" id="studioBuildLayer" aria-hidden="true"></div>
+<div class="swarm-flock-layer" id="swarmFlockLayer" aria-hidden="true"></div>
+<div class="swarm-dock" id="swarmDock">
+  <button class="dock-btn" id="replaySwarmBtn" type="button" title="Replay Stage 1 Vortex Reading + Full Studio Build">
+    <span class="dot cobalt" style="width:5px;height:5px;"></span>
+    <span>Replay Scan</span>
+  </button>
+  <button class="dock-btn" id="replayBuildBtn" type="button" title="Replay Full-Canvas Cursor Construction">
+    <span>Replay Build</span>
+  </button>
+</div>
+
+<!-- FROSTED COBALT SLIDE-OVER FORENSIC SHEET -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<aside class="forensic-sheet" id="forensicSheet" aria-label="Forensic Source Inspector">
+  <div class="sheet-head">
+    <div>
+      <div class="kicker" id="sheetKicker">FORENSIC RECORD</div>
+      <div class="mono" style="font-size:14px;font-weight:600;margin-top:2px;" id="sheetTitle">—</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="ghost-btn" id="sheetCopyBtn">COPY JSON</button>
+      <button class="ghost-btn" id="sheetCloseBtn">ESC ×</button>
+    </div>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</aside>
+
+<!-- ⌘K COMMAND PALETTE -->
+<div class="cmdk-overlay" id="cmdkOverlay" role="dialog" aria-modal="true" aria-label="Command Palette">
+  <div class="cmdk-box">
+    <input id="cmdkInput" class="cmdk-input" type="text" placeholder="Type a hit ID, customer name, dataset, or filter (e.g. AMBIGUOUS, H-100019)…" />
+    <div class="cmdk-results" id="cmdkResults"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const state = {
+    datasets: [],
+    currentDataset: null,
+    summary: null,
+    filteredHits: [],
+    selectedHitId: null,
+    selectedCandidateIdx: 0,
+    detailCache: new Map(),
+    sheetPayload: null,
+    swarmToken: 0,
+    studioBuildToken: 0,
+    pendingStudioBuild: false,
+    lastRenderedDetail: null,
+    flockEnabled: true,
+    staticMode: false,
+    chunkPromises: new Map(),
+    filters: { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" },
+  };
+
+  const els = {
+    topbar: document.querySelector(".topbar"),
+    datasetSelect: document.getElementById("datasetSelect"),
+    telemetryStrip: document.getElementById("telemetryStrip"),
+    scoreReadout: document.getElementById("scoreReadout"),
+    specDiff: document.getElementById("specDiff"),
+    specSame: document.getElementById("specSame"),
+    specRev: document.getElementById("specRev"),
+    searchInput: document.getElementById("searchInput"),
+    reasonFilter: document.getElementById("reasonFilter"),
+    resStatusFilter: document.getElementById("resStatusFilter"),
+    labeledOnlyChk: document.getElementById("labeledOnlyChk"),
+    railCount: document.getElementById("railCount"),
+    resetBtn: document.getElementById("resetBtn"),
+    railList: document.getElementById("railList"),
+    canvas: document.getElementById("canvas"),
+    sheetBackdrop: document.getElementById("sheetBackdrop"),
+    forensicSheet: document.getElementById("forensicSheet"),
+    sheetKicker: document.getElementById("sheetKicker"),
+    sheetTitle: document.getElementById("sheetTitle"),
+    sheetBody: document.getElementById("sheetBody"),
+    sheetCopyBtn: document.getElementById("sheetCopyBtn"),
+    sheetCloseBtn: document.getElementById("sheetCloseBtn"),
+    openCmdkBtn: document.getElementById("openCmdkBtn"),
+    replaySwarmBtn: document.getElementById("replaySwarmBtn"),
+    cmdkOverlay: document.getElementById("cmdkOverlay"),
+    cmdkInput: document.getElementById("cmdkInput"),
+    cmdkResults: document.getElementById("cmdkResults"),
+    swarmStage: document.getElementById("swarmStage"),
+    swarmHudTitle: document.getElementById("swarmHudTitle"),
+    swarmSkipBtn: document.getElementById("swarmSkipBtn"),
+    swarmVortex: document.getElementById("swarmVortex"),
+    vortexRipple: document.getElementById("vortexRipple"),
+    vortexCount: document.getElementById("vortexCount"),
+    swarmCardsLayer: document.getElementById("swarmCardsLayer"),
+    swarmCursorsLayer: document.getElementById("swarmCursorsLayer"),
+    studioBuildLayer: document.getElementById("studioBuildLayer"),
+    swarmFlockLayer: document.getElementById("swarmFlockLayer"),
+    toggleFlockBtn: document.getElementById("toggleFlockBtn"),
+    swarmTopLabel: document.getElementById("swarmTopLabel"),
+    replayBuildBtn: document.getElementById("replayBuildBtn"),
+  };
+
+  const esc = v => v === null || v === undefined ? "" : String(v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  const decCls = d => d === "DIFFERENT_ENTITY" ? "diff" : (d === "SAME_ENTITY" ? "same" : "rev");
+  const decOp = d => d === "DIFFERENT_ENTITY" ? "≠" : (d === "SAME_ENTITY" ? "≡" : "?");
+
+  const CURSOR_PALETTE = ["#22d3ee", "#60a5fa", "#a78bfa", "#34d399", "#38bdf8", "#818cf8", "#2dd4bf", "#f472b6"];
+
+  function sleepMs(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function restoreStudioStatic() {
+    els.studioBuildLayer.innerHTML = "";
+    els.railList.classList.remove("building-blank");
+    els.canvas.classList.remove("building-blank");
+    els.railList.querySelectorAll(".rail-row").forEach(el => { el.style.opacity = ""; });
+    els.canvas.querySelectorAll(
+      ".hero-kicker-row, .hero-headline, .verdict-row, .narrative-prose, .evidence-strip, .section-head, .precedence-step, .cand-strip, .stream-stage, .ledger thead, .ledger tbody tr, .section-block > *"
+    ).forEach(el => { el.style.opacity = ""; });
+
+    const svg = els.canvas.querySelector(".stream-svg");
+    if (svg) {
+      svg.querySelectorAll(".s-node").forEach(g => {
+        g.style.opacity = "";
+        g.style.transition = "";
+      });
+      svg.querySelectorAll("path").forEach(p => {
+        const origDash = p.getAttribute("data-orig-dash");
+        if (origDash !== null) {
+          if (origDash) p.setAttribute("stroke-dasharray", origDash);
+          else p.removeAttribute("stroke-dasharray");
+        }
+        p.style.strokeDasharray = "";
+        p.style.strokeDashoffset = "";
+      });
+      svg.querySelectorAll("circle").forEach(c => { c.style.opacity = ""; });
+    }
+    els.canvas.querySelectorAll(".hero-headline, .narrative-prose").forEach(el => {
+      if (el.dataset.fullHtml) {
+        el.innerHTML = el.dataset.fullHtml;
+        el.style.minHeight = "";
+        delete el.dataset.fullHtml;
+      }
+      if (state.lastRenderedDetail) {
+        el.querySelectorAll("[data-inspect]").forEach(btn => {
+          btn.addEventListener("click", () => openSheet(state.lastRenderedDetail, btn.getAttribute("data-inspect")));
+        });
+      }
+    });
+  }
+
+  function closeSwarmStage(immediate = false, cancelled = false) {
+    state.swarmToken += 1;
+    if (cancelled) {
+      state.pendingStudioBuild = false;
+      state.studioBuildToken += 1;
+      restoreStudioStatic();
+    }
+    els.swarmStage.classList.remove("active");
+    els.swarmStage.classList.add("closing");
+    els.swarmStage.setAttribute("aria-hidden", "true");
+    els.swarmVortex.classList.remove("collapsing", "absorb-cobalt", "absorb-hit");
+    const clearLayers = () => {
+      els.swarmCardsLayer.innerHTML = "";
+      els.swarmCursorsLayer.innerHTML = "";
+      els.swarmStage.classList.remove("closing");
+      updateFlockVisibility();
+    };
+    if (immediate) {
+      clearLayers();
+    } else {
+      setTimeout(() => {
+        if (!els.swarmStage.classList.contains("active")) clearLayers();
+      }, 360);
+    }
+  }
+
+  // ── PERSISTENT BOIDS MOUSE-FOLLOW FLOCK ENGINE (10 multiplayer cursors) ──
+  const flockState = {
+    agents: [
+      { name: "Bio Reader", color: "#22d3ee", x: 520, y: 240, vx: 0, vy: 0, baseAng: 0.2, rad: 56, speed: 0.55 },
+      { name: "KYC Guard", color: "#60a5fa", x: 640, y: 310, vx: 0, vy: 0, baseAng: 1.4, rad: 74, speed: 0.48 },
+      { name: "Geo Miner", color: "#a78bfa", x: 760, y: 260, vx: 0, vy: 0, baseAng: 2.6, rad: 64, speed: 0.62 },
+      { name: "Policy Judge", color: "#34d399", x: 610, y: 400, vx: 0, vy: 0, baseAng: 3.9, rad: 88, speed: 0.42 },
+      { name: "Name Matcher", color: "#38bdf8", x: 460, y: 340, vx: 0, vy: 0, baseAng: 5.1, rad: 102, speed: -0.50 },
+      { name: "DOB Parser", color: "#818cf8", x: 820, y: 380, vx: 0, vy: 0, baseAng: 0.9, rad: 118, speed: 0.36 },
+      { name: "Shield Filter", color: "#2dd4bf", x: 540, y: 450, vx: 0, vy: 0, baseAng: 2.2, rad: 132, speed: -0.44 },
+      { name: "Alias Graph", color: "#f472b6", x: 700, y: 190, vx: 0, vy: 0, baseAng: 3.4, rad: 96, speed: 0.58 },
+      { name: "Sanctions API", color: "#60a5fa", x: 430, y: 210, vx: 0, vy: 0, baseAng: 4.7, rad: 146, speed: -0.34 },
+      { name: "Audit Trail", color: "#22d3ee", x: 860, y: 280, vx: 0, vy: 0, baseAng: 5.7, rad: 124, speed: 0.46 },
+    ],
+    els: [],
+    mouse: { x: window.innerWidth * 0.60, y: window.innerHeight * 0.48, active: false, lastMove: 0 },
+    building: false,
+    rafId: 0,
+    lastTs: 0,
+  };
+
+  function wakeFlockAroundPointer() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cx = flockState.mouse.active ? flockState.mouse.x : vw * 0.58;
+    const cy = flockState.mouse.active ? flockState.mouse.y : vh * 0.48;
+    flockState.agents.forEach((a, i) => {
+      const ang = (i / flockState.agents.length) * Math.PI * 2;
+      const startR = a.rad + 140;
+      a.x = Math.max(20, Math.min(vw - 85, cx + Math.cos(ang) * startR));
+      a.y = Math.max(58, Math.min(vh - 30, cy + Math.sin(ang) * startR));
+      a.vx = -Math.cos(ang) * 180;
+      a.vy = -Math.sin(ang) * 180;
+    });
+  }
+
+  function initFlockCursors() {
+    els.swarmFlockLayer.innerHTML = "";
+    flockState.els = flockState.agents.map(ag => {
+      const node = document.createElement("div");
+      node.className = "swarm-flock-cursor";
+      node.innerHTML = `
+        ${cursorSvgMarkup(ag.color, "arrow")}
+        <div class="swarm-flock-badge" style="background:${ag.color};">${esc(ag.name)}</div>
+      `;
+      els.swarmFlockLayer.appendChild(node);
+      node.style.transform = `translate3d(${ag.x}px, ${ag.y}px, 0)`;
+      return node;
+    });
+    updateFlockVisibility();
+    if (!flockState.rafId) {
+      flockState.lastTs = performance.now();
+      const loop = now => {
+        const dt = Math.min(0.05, Math.max(0.001, (now - flockState.lastTs) / 1000));
+        flockState.lastTs = now;
+        stepFlockPhysics(now / 1000, dt);
+        flockState.rafId = requestAnimationFrame(loop);
+      };
+      flockState.rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  function updateFlockVisibility() {
+    const show = state.flockEnabled && !els.swarmStage.classList.contains("active") && !flockState.building;
+    els.swarmFlockLayer.classList.toggle("hidden", !show);
+    if (els.toggleFlockBtn) {
+      els.toggleFlockBtn.classList.toggle("on", state.flockEnabled);
+      els.toggleFlockBtn.classList.toggle("off", !state.flockEnabled);
+      if (els.swarmTopLabel) els.swarmTopLabel.textContent = state.flockEnabled ? "Swarm" : "Swarm · Off";
+    }
+  }
+
+  function seedFlockPositions(points) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    flockState.agents.forEach((a, idx) => {
+      const pt = points.length ? points[idx % points.length] : null;
+      if (pt) {
+        a.x = Math.max(20, Math.min(vw - 85, pt.x + ((idx % 3) - 1) * 28));
+        a.y = Math.max(58, Math.min(vh - 30, pt.y + ((idx % 2) ? 18 : -18)));
+        a.vx = 0;
+        a.vy = 0;
+      }
+    });
+  }
+
+  function stepFlockPhysics(tSec, dt) {
+    if (!state.flockEnabled || els.swarmStage.classList.contains("active") || flockState.building) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const mouseRecent = flockState.mouse.active && (performance.now() - flockState.mouse.lastMove < 6500);
+    const anchorX = mouseRecent ? flockState.mouse.x : vw * 0.62;
+    const anchorY = mouseRecent ? flockState.mouse.y : vh * 0.46;
+
+    const agents = flockState.agents;
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const ang = a.baseAng + tSec * a.speed;
+      const rad = mouseRecent ? a.rad : (a.rad * 1.45);
+      const tx = Math.max(24, Math.min(vw - 95, anchorX + Math.cos(ang) * rad));
+      const ty = Math.max(58, Math.min(vh - 34, anchorY + Math.sin(ang) * (rad * 0.72)));
+
+      let ax = (tx - a.x) * 5.6;
+      let ay = (ty - a.y) * 5.6;
+
+      // Keep clear bubble around real user cursor so clicks/hover stay unobstructed
+      if (mouseRecent) {
+        const mdx = a.x - flockState.mouse.x;
+        const mdy = a.y - flockState.mouse.y;
+        const mdist = Math.hypot(mdx, mdy) || 0.01;
+        if (mdist < 46) {
+          const push = ((46 - mdist) / 46) * 460;
+          ax += (mdx / mdist) * push;
+          ay += (mdy / mdist) * push;
+        }
+      }
+
+      // Pairwise separation among the 10 agent cursors
+      for (let j = 0; j < agents.length; j++) {
+        if (i === j) continue;
+        const b = agents[j];
+        const sdx = a.x - b.x;
+        const sdy = a.y - b.y;
+        const sdist = Math.hypot(sdx, sdy) || 0.01;
+        if (sdist < 44) {
+          const rep = ((44 - sdist) / 44) * 280;
+          ax += (sdx / sdist) * rep;
+          ay += (sdy / sdist) * rep;
+        }
+      }
+
+      a.vx = (a.vx + ax * dt) * Math.pow(0.05, dt);
+      a.vy = (a.vy + ay * dt) * Math.pow(0.05, dt);
+      const spd = Math.hypot(a.vx, a.vy);
+      if (spd > 780) {
+        a.vx = (a.vx / spd) * 780;
+        a.vy = (a.vy / spd) * 780;
+      }
+      a.x = Math.max(12, Math.min(vw - 85, a.x + a.vx * dt));
+      a.y = Math.max(54, Math.min(vh - 28, a.y + a.vy * dt));
+      if (flockState.els[i]) {
+        flockState.els[i].style.transform = `translate3d(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px, 0)`;
+      }
+    }
+  }
+
+  // Shared token-by-token typist helper for headlines & verdict prose
+  async function typeElementWithCursor(targetEl, detail, color, badge, durationMs, alive, onPos) {
+    if (!targetEl || !alive()) return;
+    targetEl.dataset.fullHtml = targetEl.innerHTML;
+    const rect = targetEl.getBoundingClientRect();
+    targetEl.style.minHeight = `${Math.ceil(rect.height)}px`;
+
+    const segs = [];
+    Array.from(targetEl.childNodes).forEach(nd => {
+      if (nd.nodeType === Node.TEXT_NODE) {
+        const val = nd.textContent || "";
+        for (let i = 0; i < val.length; i += 2) {
+          segs.push({ kind: "char", text: val.slice(i, i + 2) });
+        }
+      } else if (nd.nodeType === Node.ELEMENT_NODE) {
+        // Keep small spans/buttons atomic or type plain span text gradually
+        if (nd.tagName === "SPAN" && !nd.querySelector("button")) {
+          const spanClass = nd.className ? ` class="${nd.className}"` : "";
+          const txt = nd.textContent || "";
+          segs.push({ kind: "spanStart", cls: nd.className || "" });
+          for (let i = 0; i < txt.length; i += 2) {
+            segs.push({ kind: "spanChar", text: txt.slice(i, i + 2) });
+          }
+          segs.push({ kind: "spanEnd" });
+        } else {
+          segs.push({ kind: "el", html: nd.outerHTML });
+        }
+      }
+    });
+
+    targetEl.innerHTML = "";
+    targetEl.style.opacity = "1";
+    const caretEl = document.createElement("span");
+    caretEl.className = "prose-typing-caret";
+    targetEl.appendChild(caretEl);
+
+    const cur = createSwarmCursorEl(color, badge, "arrow");
+    els.studioBuildLayer.appendChild(cur);
+    cur.classList.add("visible");
+
+    let activeSpan = null;
+    const startTs = performance.now();
+    let idx = 0;
+
+    await new Promise(resolve => {
+      function tick(now) {
+        if (!alive()) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const targetIdx = Math.floor(t * segs.length);
+        while (idx < targetIdx && idx < segs.length) {
+          const s = segs[idx++];
+          if (s.kind === "char") {
+            activeSpan = null;
+            const prev = caretEl.previousSibling;
+            if (prev && prev.nodeType === Node.TEXT_NODE) prev.nodeValue += s.text;
+            else caretEl.parentNode.insertBefore(document.createTextNode(s.text), caretEl);
+          } else if (s.kind === "spanStart") {
+            activeSpan = document.createElement("span");
+            if (s.cls) activeSpan.className = s.cls;
+            caretEl.parentNode.insertBefore(activeSpan, caretEl);
+          } else if (s.kind === "spanChar") {
+            if (activeSpan) activeSpan.textContent += s.text;
+          } else if (s.kind === "spanEnd") {
+            activeSpan = null;
+          } else {
+            activeSpan = null;
+            const wrap = document.createElement("span");
+            wrap.innerHTML = s.html;
+            const node = wrap.firstElementChild;
+            if (node) {
+              const id = node.getAttribute("data-inspect");
+              if (id && detail) node.addEventListener("click", () => openSheet(detail, id));
+              caretEl.parentNode.insertBefore(node, caretEl);
+            }
+          }
+        }
+        const cRect = caretEl.getBoundingClientRect();
+        if (cRect.width || cRect.height) {
+          const cx = cRect.left + 4;
+          const cy = cRect.top + cRect.height * 0.72;
+          cur.style.transform = `translate3d(${cx.toFixed(1)}px, ${cy.toFixed(1)}px, 0)`;
+          if (onPos) onPos({ x: cx, y: cy });
+        }
+        if (t < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+    caretEl.remove();
+    targetEl.style.minHeight = "";
+    cur.remove();
+  }
+
+  // ── FULL-SCREEN STUDIO CURSOR-BUILD CHOREOGRAPHY (Blank -> Built by 10 Cursors) ──
+  async function runStudioCursorBuild(detail) {
+    if (!detail) return;
+    const token = ++state.studioBuildToken;
+    state.pendingStudioBuild = false;
+    restoreStudioStatic();
+
+    const alive = () => token === state.studioBuildToken && !els.swarmStage.classList.contains("active");
+    const svg = els.canvas.querySelector(".stream-svg");
+    const prose = els.canvas.querySelector(".narrative-prose");
+    const headline = els.canvas.querySelector(".hero-headline");
+    if (!svg && !prose && !headline) return;
+
+    flockState.building = true;
+    updateFlockVisibility();
+    els.studioBuildLayer.innerHTML = "";
+    els.railList.classList.add("building-blank");
+    els.canvas.classList.add("building-blank");
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (!alive()) { restoreStudioStatic(); flockState.building = false; updateFlockVisibility(); return; }
+
+    const exitPoints = [];
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const isOnScreen = rect => rect.width > 4 && rect.height > 4 && rect.bottom > 48 && rect.top < vh - 12 && rect.right > 0 && rect.left < vw;
+
+    // Pre-hide Provenance Stream SVG elements
+    let svgData = null;
+    if (svg) {
+      const ctm = svg.getScreenCTM();
+      const toScreen = (sx, sy) => (!ctm ? { x: sx, y: sy } : { x: ctm.a * sx + ctm.c * sy + ctm.e, y: ctm.b * sx + ctm.d * sy + ctm.f });
+      const nodeGroups = Array.from(svg.querySelectorAll(".s-node"));
+      const pathEls = Array.from(svg.querySelectorAll("path"));
+      const pulseEls = Array.from(svg.querySelectorAll("circle"));
+
+      nodeGroups.forEach(g => { g.style.opacity = "0"; g.style.transition = "opacity 0.25s ease"; });
+      pathEls.forEach(p => {
+        const orig = p.getAttribute("stroke-dasharray") || "";
+        p.setAttribute("data-orig-dash", orig);
+        const len = p.getTotalLength();
+        p.style.strokeDasharray = `${len}`;
+        p.style.strokeDashoffset = `${len}`;
+      });
+      pulseEls.forEach(c => { c.style.opacity = "0"; });
+
+      const leftNodes = [], centerNodes = [], rightNodes = [];
+      nodeGroups.forEach(g => {
+        const r = g.querySelector("rect");
+        if (!r) return;
+        const x = parseFloat(r.getAttribute("x") || "0");
+        const y = parseFloat(r.getAttribute("y") || "0");
+        const w = parseFloat(r.getAttribute("width") || "0");
+        const h = parseFloat(r.getAttribute("height") || "0");
+        const tl = toScreen(x, y);
+        const br = toScreen(x + w, y + h);
+        const box = { g, svgW: Math.round(w), svgH: Math.round(h), left: tl.x, top: tl.y, width: br.x - tl.x, height: br.y - tl.y };
+        if (x < 300) leftNodes.push(box);
+        else if (x > 600) rightNodes.push(box);
+        else centerNodes.push(box);
+      });
+      svgData = { toScreen, leftNodes, centerNodes, rightNodes, pathEls, pulseEls };
+    }
+
+    // ACT 1: Left Triage Rail + Hero Header + Verdict Narrative (deliberate pace)
+    const railTask = (async () => {
+      const rows = Array.from(els.railList.querySelectorAll(".rail-row"));
+      const visibleRows = rows.filter(r => isOnScreen(r.getBoundingClientRect()));
+      const railCur = createSwarmCursorEl("#38bdf8", "Triage · Queue", "crosshair");
+      els.studioBuildLayer.appendChild(railCur);
+      for (let i = 0; i < Math.min(2, visibleRows.length); i++) {
+        if (!alive()) break;
+        const rr = visibleRows[i].getBoundingClientRect();
+        await animateCursorDrawBox(
+          els.studioBuildLayer,
+          railCur,
+          "#38bdf8",
+          rr.left,
+          rr.top,
+          rr.width,
+          rr.height,
+          () => `${Math.round(rr.width)} × ${Math.round(rr.height)}`,
+          340,
+          alive
+        );
+        if (!alive()) break;
+        visibleRows[i].style.opacity = "1";
+        exitPoints.push({ x: rr.right - 20, y: rr.bottom });
+      }
+      setSwarmCursorShape(railCur, "#38bdf8", "arrow");
+      for (let i = 2; i < visibleRows.length; i++) {
+        if (!alive()) break;
+        const rr = visibleRows[i].getBoundingClientRect();
+        railCur.classList.add("visible");
+        railCur.style.transform = `translate3d(${(rr.left + 26).toFixed(1)}px, ${(rr.top + 18).toFixed(1)}px, 0)`;
+        visibleRows[i].style.opacity = "1";
+        await sleepMs(125);
+      }
+      rows.forEach(r => { r.style.opacity = "1"; });
+      railCur.remove();
+    })();
+
+    const heroTask = (async () => {
+      const kickerRow = els.canvas.querySelector(".hero-kicker-row");
+      const verdictRow = els.canvas.querySelector(".verdict-row");
+      const evStrip = els.canvas.querySelector(".evidence-strip");
+      if (kickerRow) kickerRow.style.opacity = "1";
+
+      if (headline) {
+        await typeElementWithCursor(headline, detail, "#60a5fa", "Hero · Typist", 900, alive, pt => exitPoints.push(pt));
+      }
+      if (!alive()) return;
+      if (verdictRow) {
+        const vr = verdictRow.getBoundingClientRect();
+        const badgeCur = createSwarmCursorEl("#f472b6", "Verdict · Tag", "crosshair");
+        els.studioBuildLayer.appendChild(badgeCur);
+        await animateCursorDrawBox(
+          els.studioBuildLayer,
+          badgeCur,
+          "#f472b6",
+          vr.left,
+          vr.top,
+          Math.min(440, vr.width),
+          vr.height,
+          () => `VERDICT · TAG`,
+          320,
+          alive
+        );
+        badgeCur.remove();
+        verdictRow.style.opacity = "1";
+      }
+      if (!alive()) return;
+      if (prose) {
+        await typeElementWithCursor(prose, detail, "#22d3ee", "Grok · Narrator", 2300, alive, pt => exitPoints.push(pt));
+      }
+      if (!alive()) return;
+      if (evStrip) {
+        evStrip.style.opacity = "1";
+      }
+    })();
+
+    // ACT 2 (staggered +650ms): 7-Stage Policy Precedence Waterfall walked left-to-right
+    const precedenceTask = (async () => {
+      await sleepMs(650);
+      if (!alive()) return;
+      const pipeSec = els.canvas.querySelectorAll(".section-block")[0];
+      if (pipeSec) {
+        const sh = pipeSec.querySelector(".section-head");
+        if (sh) sh.style.opacity = "1";
+        const cStrip = pipeSec.querySelector(".cand-strip");
+        if (cStrip) cStrip.style.opacity = "1";
+      }
+      const steps = Array.from(els.canvas.querySelectorAll(".precedence-step"));
+      if (!steps.length) return;
+      const pCur = createSwarmCursorEl("#818cf8", "Policy · Rules", "crosshair");
+      els.studioBuildLayer.appendChild(pCur);
+      for (let i = 0; i < steps.length; i++) {
+        if (!alive()) break;
+        const sr = steps[i].getBoundingClientRect();
+        if (isOnScreen(sr)) {
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            pCur,
+            "#818cf8",
+            sr.left,
+            sr.top,
+            sr.width,
+            sr.height,
+            () => `RULE 0${i + 1}`,
+            195,
+            alive
+          );
+        }
+        steps[i].style.opacity = "1";
+        exitPoints.push({ x: sr.right, y: sr.bottom });
+      }
+      pCur.remove();
+    })();
+
+    // ACT 3 (staggered +1450ms): Provenance Stream Crosshair Boxes & Slow Pen Curves
+    const streamTask = (async () => {
+      await sleepMs(1450);
+      if (!alive() || !svgData) return;
+      const streamSec = els.canvas.querySelectorAll(".section-block")[1];
+      if (streamSec) {
+        const sh = streamSec.querySelector(".section-head");
+        if (sh) sh.style.opacity = "1";
+      }
+
+      async function drawSvgLane(boxes, color, badge) {
+        if (!boxes.length) return;
+        const cur = createSwarmCursorEl(color, badge, "crosshair");
+        els.studioBuildLayer.appendChild(cur);
+        for (const b of boxes) {
+          if (!alive()) break;
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            cur,
+            color,
+            b.left,
+            b.top,
+            b.width,
+            b.height,
+            () => `${b.svgW} × ${b.svgH}`,
+            boxes.length > 2 ? 320 : 440,
+            alive
+          );
+          if (!alive()) break;
+          b.g.style.opacity = "1";
+          exitPoints.push({ x: b.left + b.width, y: b.top + b.height });
+        }
+        cur.remove();
+      }
+
+      await Promise.all([
+        drawSvgLane(svgData.leftNodes, "#60a5fa", "CRM · Graph"),
+        drawSvgLane(svgData.centerNodes, "#34d399", "Policy · Engine"),
+        drawSvgLane(svgData.rightNodes, "#a78bfa", "Watchlist · Shield"),
+      ]);
+      if (!alive()) return;
+
+      const penLeft = createSwarmCursorEl("#60a5fa", "Pen · Link", "pen");
+      const penRight = createSwarmCursorEl("#a78bfa", "Pen · Link", "pen");
+      els.studioBuildLayer.appendChild(penLeft);
+      els.studioBuildLayer.appendChild(penRight);
+      penLeft.classList.add("visible");
+      penRight.classList.add("visible");
+
+      const pathDur = 920;
+      const pStart = performance.now();
+      await new Promise(resolve => {
+        function tickPaths(now) {
+          if (!alive()) { resolve(); return; }
+          const t = Math.min(1, (now - pStart) / pathDur);
+          const p = 1 - Math.pow(1 - t, 1.9);
+          svgData.pathEls.forEach((pe, idx) => {
+            const len = pe.getTotalLength();
+            pe.style.strokeDashoffset = `${(1 - p) * len}`;
+            if (idx === 0 || idx === svgData.leftNodes.length) {
+              const pt = pe.getPointAtLength(p * len);
+              const sc = svgData.toScreen(pt.x, pt.y);
+              const targetPen = idx === 0 ? penLeft : penRight;
+              targetPen.style.transform = `translate3d(${(sc.x - 2).toFixed(1)}px, ${(sc.y - 16).toFixed(1)}px, 0)`;
+              exitPoints.push({ x: sc.x, y: sc.y });
+            }
+          });
+          if (t < 1) requestAnimationFrame(tickPaths);
+          else resolve();
+        }
+        requestAnimationFrame(tickPaths);
+      });
+
+      penLeft.remove();
+      penRight.remove();
+      if (!alive()) return;
+      svgData.pathEls.forEach(pe => {
+        const orig = pe.getAttribute("data-orig-dash");
+        if (orig) pe.setAttribute("stroke-dasharray", orig);
+        else pe.removeAttribute("stroke-dasharray");
+        pe.style.strokeDasharray = "";
+        pe.style.strokeDashoffset = "";
+      });
+      svgData.pulseEls.forEach(c => { c.style.opacity = "1"; });
+    })();
+
+    // ACT 4 (staggered +2800ms): Entity Comparison Ledger + Tail Sections
+    const ledgerTask = (async () => {
+      await sleepMs(2800);
+      if (!alive()) return;
+      const allSections = Array.from(els.canvas.querySelectorAll(".section-block"));
+      const ledgerSec = allSections[2];
+      if (ledgerSec) {
+        const sh = ledgerSec.querySelector(".section-head");
+        const thead = ledgerSec.querySelector("thead");
+        if (sh) sh.style.opacity = "1";
+        if (thead) thead.style.opacity = "1";
+      }
+      const rows = Array.from(els.canvas.querySelectorAll(".ledger tbody tr"));
+      const lCur = createSwarmCursorEl("#2dd4bf", "Ledger · Auditor", "crosshair");
+      els.studioBuildLayer.appendChild(lCur);
+      for (const row of rows) {
+        if (!alive()) break;
+        const rr = row.getBoundingClientRect();
+        if (isOnScreen(rr)) {
+          await animateCursorDrawBox(
+            els.studioBuildLayer,
+            lCur,
+            "#2dd4bf",
+            rr.left,
+            rr.top,
+            rr.width,
+            rr.height,
+            () => `${Math.round(rr.width)} × ${Math.round(rr.height)}`,
+            260,
+            alive
+          );
+          exitPoints.push({ x: rr.left + rr.width * 0.65, y: rr.top + rr.height * 0.5 });
+        }
+        row.style.opacity = "1";
+      }
+      lCur.remove();
+      // Reveal any remaining below-fold sections smoothly
+      els.canvas.querySelectorAll(".section-block > *").forEach(el => { el.style.opacity = "1"; });
+    })();
+
+    await Promise.all([railTask, heroTask, precedenceTask, streamTask, ledgerTask]);
+    els.studioBuildLayer.innerHTML = "";
+    flockState.building = false;
+    restoreStudioStatic();
+    if (exitPoints.length) seedFlockPositions(exitPoints.slice(-10));
+    updateFlockVisibility();
+  }
+
+  function pulseVortex(isHit, absorbedCount, totalCount) {
+    els.vortexCount.textContent = `${absorbedCount} / ${totalCount}`;
+    els.swarmVortex.classList.remove("absorb-cobalt", "absorb-hit");
+    void els.swarmVortex.offsetWidth;
+    els.swarmVortex.classList.add(isHit ? "absorb-hit" : "absorb-cobalt");
+    els.vortexRipple.classList.remove("go", "hit");
+    void els.vortexRipple.offsetWidth;
+    if (isHit) els.vortexRipple.classList.add("hit");
+    els.vortexRipple.classList.add("go");
+    setTimeout(() => {
+      els.swarmVortex.classList.remove("absorb-cobalt", "absorb-hit");
+    }, 260);
+  }
+
+  function computeOrbitalSlot(slotIdx, stageW, stageH, cardW, cardH) {
+    if (stageW < 740) {
+      const topSide = slotIdx % 2 === 0;
+      const vx = stageW / 2;
+      const vy = stageH / 2;
+      const left = Math.max(14, Math.min(stageW - cardW - 14, vx - cardW / 2));
+      const topMin = 56;
+      const topMax = Math.max(topMin, vy - 72 - cardH);
+      const botMin = Math.min(stageH - cardH - 16, vy + 72);
+      const top = topSide ? Math.max(topMin, topMax * 0.55) : Math.max(botMin, stageH - cardH - 22);
+      return {
+        left,
+        top: Math.max(54, Math.min(stageH - cardH - 14, top)),
+        swirlSign: topSide ? 1 : -1,
+      };
+    }
+    if (stageW < 920) {
+      const topSide = slotIdx % 2 === 0;
+      const cx = stageW * (0.28 + 0.22 * (slotIdx % 3));
+      const cy = topSide ? Math.max(84 + cardH / 2, stageH * 0.22) : Math.min(stageH - 28 - cardH / 2, stageH * 0.78);
+      return {
+        left: Math.max(16, Math.min(stageW - cardW - 16, cx - cardW / 2)),
+        top: Math.max(66, Math.min(stageH - cardH - 18, cy - cardH / 2)),
+        swirlSign: topSide ? 1 : -1,
+      };
+    }
+    const vx = stageW / 2;
+    const vy = stageH / 2;
+    const sidePad = 24;
+    const leftX = Math.max(sidePad, vx - 125 - cardW);
+    const rightX = Math.min(stageW - cardW - sidePad, vx + 125);
+    const centerX = vx - cardW / 2;
+    const upperY = Math.max(68, vy - cardH - 42);
+    const lowerY = Math.min(stageH - cardH - 22, vy + 42);
+    const topCenterY = Math.max(64, vy - 102 - cardH);
+    const bottomCenterY = Math.min(stageH - cardH - 20, vy + 102);
+
+    const coords = [
+      { left: Math.min(leftX, sidePad + (vx - sidePad - cardW) * 0.25), top: upperY, swirl: 1 },
+      { left: Math.max(rightX, vx + (stageW - sidePad - vx - cardW) * 0.75), top: upperY, swirl: -1 },
+      { left: centerX, top: bottomCenterY, swirl: 1 },
+      { left: Math.min(leftX, sidePad + (vx - sidePad - cardW) * 0.25), top: lowerY, swirl: -1 },
+      { left: Math.max(rightX, vx + (stageW - sidePad - vx - cardW) * 0.75), top: lowerY, swirl: 1 },
+      { left: centerX, top: topCenterY, swirl: -1 },
+    ];
+    const c = coords[slotIdx % coords.length];
+    return {
+      left: Math.max(sidePad, Math.min(stageW - cardW - sidePad, c.left)),
+      top: Math.max(64, Math.min(stageH - cardH - 18, c.top)),
+      swirlSign: c.swirl,
+    };
+  }
+
+  function extractTextLineRects(paraWrap, textNode) {
+    const wrapRect = paraWrap.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const rects = Array.from(range.getClientRects()).filter(r => r.width > 0.5 && r.height > 0.5);
+    const lines = [];
+    for (const r of rects) {
+      const top = r.top - wrapRect.top;
+      const left = r.left - wrapRect.left;
+      const right = left + r.width;
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(top - last.top) < 5) {
+        last.left = Math.min(last.left, left);
+        last.right = Math.max(last.right, right);
+        last.width = last.right - last.left;
+        last.height = Math.max(last.height, r.height);
+      } else {
+        lines.push({ left, top, right, width: r.width, height: r.height });
+      }
+    }
+    return lines;
+  }
+
+  function applyHighlightSpan(paraEl, fullText, quote) {
+    if (!quote) return;
+    const idx = fullText.toLowerCase().indexOf(quote.toLowerCase());
+    if (idx === -1) return;
+    const before = fullText.slice(0, idx);
+    const hitStr = fullText.slice(idx, idx + quote.length);
+    const after = fullText.slice(idx + quote.length);
+    paraEl.textContent = "";
+    if (before) paraEl.appendChild(document.createTextNode(before));
+    const mark = document.createElement("mark");
+    mark.className = "swarm-hl";
+    mark.textContent = hitStr;
+    paraEl.appendChild(mark);
+    if (after) paraEl.appendChild(document.createTextNode(after));
+  }
+
+  function cursorSvgMarkup(color, kind = "arrow") {
+    if (kind === "crosshair") {
+      return `<svg viewBox="0 0 18 18" fill="none">
+        <path d="M9 2V16M2 9H16" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="9" cy="9" r="2.2" fill="#020617" stroke="${color}" stroke-width="1.2"/>
+      </svg>`;
+    }
+    if (kind === "pen") {
+      return `<svg viewBox="0 0 18 18" fill="none">
+        <path d="M2 16L5.5 6.2L12.8 3.2L14.8 5.2L11.8 12.5L2 16Z" fill="${color}" stroke="#020617" stroke-width="1.2" stroke-linejoin="round"/>
+        <circle cx="9.2" cy="8.8" r="1.3" fill="#020617"/>
+      </svg>`;
+    }
+    return `<svg viewBox="0 0 18 18" fill="none">
+      <path d="M2 1.5L15.5 7.4L9.2 9.7L6.9 15.8L2 1.5Z" fill="${color}" stroke="#020617" stroke-width="1.3" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function createSwarmCursorEl(color, label, kind = "arrow") {
+    const el = document.createElement("div");
+    el.className = "swarm-cursor";
+    el.innerHTML = `
+      <span class="cursor-ico">${cursorSvgMarkup(color, kind)}</span>
+      <div class="swarm-cursor-badge" style="background:${color};">${esc(label)}</div>
+    `;
+    return el;
+  }
+
+  function setSwarmCursorShape(cursorEl, color, kind) {
+    const ico = cursorEl.querySelector(".cursor-ico");
+    if (ico) ico.innerHTML = cursorSvgMarkup(color, kind);
+  }
+
+  async function animateCursorDrawBox(layerEl, cursorEl, color, left, top, w, h, labelFmt, durationMs, isAlive) {
+    const draft = document.createElement("div");
+    draft.className = "swarm-draft-box";
+    draft.style.left = `${left.toFixed(1)}px`;
+    draft.style.top = `${top.toFixed(1)}px`;
+    draft.style.width = "2px";
+    draft.style.height = "2px";
+    draft.style.borderColor = color;
+    draft.innerHTML = `
+      <span class="swarm-draft-corner tl"></span>
+      <span class="swarm-draft-corner tr"></span>
+      <span class="swarm-draft-corner bl"></span>
+      <span class="swarm-draft-corner br"></span>
+      <span class="swarm-size-pill" style="background:${color};color:#03060f;">0 × 0</span>
+    `;
+    layerEl.appendChild(draft);
+    const pill = draft.querySelector(".swarm-size-pill");
+
+    setSwarmCursorShape(cursorEl, color, "crosshair");
+    cursorEl.classList.add("visible");
+    cursorEl.style.transform = `translate3d(${(left - 9).toFixed(1)}px, ${(top - 9).toFixed(1)}px, 0)`;
+
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function step(now) {
+        if (!isAlive()) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const p = 1 - Math.pow(1 - t, 2.4);
+        const cw = Math.max(4, w * p);
+        const ch = Math.max(4, h * p);
+        draft.style.width = `${cw.toFixed(1)}px`;
+        draft.style.height = `${ch.toFixed(1)}px`;
+        if (pill) pill.textContent = labelFmt(p, cw, ch);
+        cursorEl.style.transform = `translate3d(${(left + cw - 9).toFixed(1)}px, ${(top + ch - 9).toFixed(1)}px, 0)`;
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      }
+      requestAnimationFrame(step);
+    });
+    draft.remove();
+  }
+
+  async function animateSingleSwarmCard(trace, slotIdx, runToken, statsRef) {
+    if (runToken !== state.swarmToken) return;
+    const stageRect = els.swarmStage.getBoundingClientRect();
+    const stageW = stageRect.width || window.innerWidth;
+    const stageH = stageRect.height || (window.innerHeight - 48);
+
+    const card = document.createElement("div");
+    card.className = "swarm-card";
+    const isLlm = trace.source_mode === "LLM";
+    const color = CURSOR_PALETTE[slotIdx % CURSOR_PALETTE.length];
+    const roleShort = (trace.agent_role || "Swarm").replace(/^(Grok|Rule|Shield)\s*·\s*/i, "");
+    card.innerHTML = `
+      <div class="swarm-card-head">
+        <span class="swarm-mode-pill ${isLlm ? "llm" : "scan"}">${isLlm ? "LLM" : "SCAN"} · ${esc(trace.agent_role || "Swarm Reader")}</span>
+        <span class="swarm-rec-id">${esc(trace.record_id || trace.channel || "")}</span>
+      </div>
+      <div class="swarm-para-wrap">
+        <div class="swarm-sel-layer"></div>
+        <div class="swarm-caret"></div>
+        <p class="swarm-para"></p>
+      </div>
+      <div class="swarm-card-foot">
+        <span class="swarm-outcome">Reading paragraph…</span>
+        <span style="color:var(--ink-4);">${esc(trace.channel || "")}</span>
+      </div>
+    `;
+
+    const paraEl = card.querySelector(".swarm-para");
+    const textNode = document.createTextNode(trace.text || "");
+    paraEl.appendChild(textNode);
+
+    els.swarmCardsLayer.appendChild(card);
+    const cardW = card.offsetWidth || 280;
+    const cardH = card.offsetHeight || 140;
+    const slot = computeOrbitalSlot(slotIdx, stageW, stageH, cardW, cardH);
+    card.style.left = `${slot.left}px`;
+    card.style.top = `${slot.top}px`;
+
+    // Build dedicated swarm cursor for this card
+    const cursor = createSwarmCursorEl(color, roleShort, "crosshair");
+    els.swarmCursorsLayer.appendChild(cursor);
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    // Crosshair-draw the card bounding box before materializing (deliberate readable speed)
+    await animateCursorDrawBox(
+      els.swarmCardsLayer,
+      cursor,
+      color,
+      slot.left,
+      slot.top,
+      cardW,
+      cardH,
+      (p, cw, ch) => `${Math.round(cw)} × ${Math.round(ch)}`,
+      430,
+      () => runToken === state.swarmToken
+    );
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    setSwarmCursorShape(cursor, color, "arrow");
+    card.classList.add("visible");
+    await sleepMs(220);
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    // Measure actual line geometry now that card scale === 1
+    const paraWrap = card.querySelector(".swarm-para-wrap");
+    const selLayer = card.querySelector(".swarm-sel-layer");
+    const caret = card.querySelector(".swarm-caret");
+    const outcomeEl = card.querySelector(".swarm-outcome");
+
+    const lines = extractTextLineRects(paraWrap, textNode);
+    const selDivs = lines.map(ln => {
+      const d = document.createElement("div");
+      d.className = "swarm-sel-rect";
+      d.style.left = `${ln.left}px`;
+      d.style.top = `${ln.top}px`;
+      d.style.height = `${ln.height}px`;
+      d.style.width = "0px";
+      selLayer.appendChild(d);
+      return d;
+    });
+
+    const wrapRect = paraWrap.getBoundingClientRect();
+    const wrapOffsetX = wrapRect.left - stageRect.left;
+    const wrapOffsetY = wrapRect.top - stageRect.top;
+
+    // Total sweep weights proportional to each wrapped line's pixel length (slow readable pacing)
+    const totalW = lines.reduce((acc, ln) => acc + Math.max(12, ln.width), 0) || 1;
+    const sweepDuration = Math.min(2800, Math.max(1950, 1450 + lines.length * 320));
+    cursor.classList.add("visible");
+    if (lines.length > 0) caret.style.opacity = "1";
+
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function tick(now) {
+        if (runToken !== state.swarmToken) { resolve(); return; }
+        const rawT = Math.min(1, (now - startTs) / sweepDuration);
+        const targetDist = rawT * totalW;
+
+        let acc = 0;
+        let activeIdx = lines.length - 1;
+        let lineFrac = 1;
+        for (let i = 0; i < lines.length; i++) {
+          const w = Math.max(12, lines[i].width);
+          if (acc + w >= targetDist || i === lines.length - 1) {
+            activeIdx = i;
+            lineFrac = Math.max(0, Math.min(1, (targetDist - acc) / w));
+            break;
+          }
+          acc += w;
+        }
+
+        for (let i = 0; i < lines.length; i++) {
+          if (i < activeIdx) selDivs[i].style.width = `${lines[i].width}px`;
+          else if (i === activeIdx) selDivs[i].style.width = `${(lines[i].width * lineFrac).toFixed(1)}px`;
+          else selDivs[i].style.width = "0px";
+        }
+
+        if (lines[activeIdx]) {
+          const ln = lines[activeIdx];
+          const cxLocal = ln.left + ln.width * lineFrac;
+          const cyLocal = ln.top + ln.height * 0.68;
+          caret.style.left = `${cxLocal.toFixed(1)}px`;
+          caret.style.top = `${ln.top.toFixed(1)}px`;
+          caret.style.height = `${ln.height.toFixed(1)}px`;
+          const bob = Math.sin(rawT * Math.PI * 10) * 1.2;
+          cursor.style.transform = `translate3d(${(wrapOffsetX + cxLocal).toFixed(1)}px, ${(wrapOffsetY + cyLocal + bob).toFixed(1)}px, 0)`;
+        }
+
+        if (rawT < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    caret.style.opacity = "0";
+    cursor.classList.remove("visible");
+
+    if (trace.matched && trace.highlight_quote) {
+      selLayer.classList.add("faded");
+      applyHighlightSpan(paraEl, trace.text || "", trace.highlight_quote);
+      card.classList.add("has-hit");
+      outcomeEl.className = "swarm-outcome hit";
+      outcomeEl.textContent = `✓ ${trace.badge || "EXTRACTED"}`;
+      await sleepMs(960);
+    } else {
+      selLayer.classList.add("faded");
+      outcomeEl.className = "swarm-outcome empty";
+      outcomeEl.textContent = "· Scanned — No entity signal";
+      await sleepMs(540);
+    }
+    if (runToken !== state.swarmToken) { card.remove(); cursor.remove(); return; }
+
+    cursor.remove();
+
+    // Gravitational curved suction into the central Quantum Vortex
+    const cardCx0 = slot.left + cardW / 2;
+    const cardCy0 = slot.top + cardH / 2;
+    const vx = stageW / 2;
+    const vy = stageH / 2;
+    const dx = vx - cardCx0;
+    const dy = vy - cardCy0;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / dist) * slot.swirlSign;
+    const ny = (dx / dist) * slot.swirlSign;
+
+    card.classList.add("sucking");
+    const suckMs = 850;
+    await new Promise(resolve => {
+      const startTs = performance.now();
+      function suckStep(now) {
+        if (runToken !== state.swarmToken) { resolve(); return; }
+        const t = Math.min(1, (now - startTs) / suckMs);
+        const p = Math.pow(t, 2.15);
+        const swirl = Math.sin(Math.PI * t) * 44;
+        const tx = dx * p + nx * swirl;
+        const ty = dy * p + ny * swirl;
+        const sc = Math.max(0.05, 1 - 0.94 * p);
+        const rot = slot.swirlSign * 22 * p;
+        const op = t < 0.65 ? 1 - 0.15 * t : Math.max(0, 1 - (t - 0.65) / 0.35);
+        const blurPx = (p * 3.2).toFixed(2);
+        card.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0) rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+        card.style.opacity = op.toFixed(3);
+        card.style.filter = `blur(${blurPx}px)`;
+        if (t < 1) requestAnimationFrame(suckStep);
+        else resolve();
+      }
+      requestAnimationFrame(suckStep);
+    });
+
+    card.remove();
+    if (runToken !== state.swarmToken) return;
+    statsRef.absorbed += 1;
+    pulseVortex(Boolean(trace.matched), statsRef.absorbed, statsRef.total);
+  }
+
+  async function runSwarmSequence(datasetId, summaryPromise, forceReplay = false) {
+    const runToken = ++state.swarmToken;
+    const dsMeta = state.datasets.find(d => d.id === datasetId);
+    const dsLabel = dsMeta ? dsMeta.name : datasetId;
+
+    if (els.topbar) {
+      els.swarmStage.style.top = `${els.topbar.offsetHeight || 48}px`;
+    }
+    els.swarmCardsLayer.innerHTML = "";
+    els.swarmCursorsLayer.innerHTML = "";
+    els.swarmVortex.classList.remove("collapsing", "absorb-cobalt", "absorb-hit");
+    els.swarmHudTitle.textContent = `SWARM READER · ${dsLabel.toUpperCase()}`;
+    els.vortexCount.textContent = "0 / 6";
+    els.swarmStage.classList.remove("closing");
+    els.swarmStage.classList.add("active");
+    els.swarmStage.setAttribute("aria-hidden", "false");
+
+    const statsRef = { absorbed: 0, total: 6 };
+    const shownKeys = new Set();
+    let activePromises = [];
+    let nextSlot = 0;
+
+    let summaryData = null;
+    let summaryDone = false;
+    summaryPromise.then(data => {
+      summaryData = data;
+      summaryDone = true;
+    }).catch(() => { summaryDone = true; });
+
+    // If cold uncached load on live server, stream genuine reading events live
+    if (!state.staticMode && !forceReplay && !(dsMeta && dsMeta.loaded)) {
+      let pollTick = 0;
+      while (!summaryDone && runToken === state.swarmToken) {
+        try {
+          const pr = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/progress`);
+          if (pr.ok && runToken === state.swarmToken) {
+            const pdata = await pr.json();
+            const tot = pdata.total || (dsMeta && dsMeta.hit_count_hint) || 0;
+            const llmC = pdata.llm_calls || 0;
+            els.swarmHudTitle.textContent = `SWARM STREAM · ${pdata.processed}/${tot} HITS · ${llmC} GROK CALLS`;
+            const evts = pdata.events || [];
+            for (const evt of evts) {
+              if (shownKeys.size >= 6) break;
+              const k = `${evt.source_mode}|${(evt.text || "").slice(0, 60)}`;
+              if (!shownKeys.has(k)) {
+                shownKeys.add(k);
+                const slot = nextSlot++;
+                const p = sleepMs((slot % 3) * 220).then(() => animateSingleSwarmCard(evt, slot, runToken, statsRef));
+                activePromises.push(p);
+              }
+            }
+          }
+        } catch (_) {}
+        if (summaryDone || runToken !== state.swarmToken) break;
+        pollTick += 1;
+        await sleepMs(Math.min(350, 220 + pollTick * 20));
+      }
+    } else {
+      await summaryPromise;
+    }
+
+    if (runToken !== state.swarmToken) return;
+
+    const traces = (summaryData && summaryData.swarm_traces) ? summaryData.swarm_traces : [];
+    const remaining = traces.filter(t => !shownKeys.has(`${t.source_mode}|${(t.text || "").slice(0, 60)}`));
+
+    if (shownKeys.size === 0 && traces.length > 0) {
+      statsRef.total = traces.length;
+      els.vortexCount.textContent = `0 / ${statsRef.total}`;
+      const llmCount = (summaryData.llm_info && summaryData.llm_info.stats && summaryData.llm_info.stats.requests_total) || 0;
+      const modeTag = llmCount > 0 ? `${llmCount} GROK LLM CALLS` : "DETERMINISTIC SCAN";
+      els.swarmHudTitle.textContent = `SWARM READER · ${dsLabel.toUpperCase()} · ${modeTag}`;
+
+      const isNarrow = window.innerWidth < 740;
+      if (isNarrow) {
+        // On narrow phones show 2 cards per wave (top + bottom of Vortex) so cards never overlap
+        const pairs = [traces.slice(0, 2), traces.slice(2, 4), traces.slice(4, 6)].filter(g => g.length);
+        let pairPromises = [];
+        pairs.forEach((grp, pIdx) => {
+          grp.forEach((tr, cIdx) => {
+            pairPromises.push(
+              sleepMs(pIdx * 3600 + cIdx * 320).then(() => animateSingleSwarmCard(tr, cIdx, runToken, statsRef))
+            );
+          });
+        });
+        await Promise.all(pairPromises);
+      } else {
+        const wave1 = traces.slice(0, 3);
+        const wave2 = traces.slice(3, 6);
+        const w1Promises = wave1.map((tr, idx) =>
+          sleepMs(idx * 340).then(() => animateSingleSwarmCard(tr, idx, runToken, statsRef))
+        );
+        let w2Promises = [];
+        if (wave2.length > 0) {
+          w2Promises = wave2.map((tr, idx) =>
+            sleepMs(3150 + idx * 340).then(() => animateSingleSwarmCard(tr, idx + 3, runToken, statsRef))
+          );
+        }
+        await Promise.all([...w1Promises, ...w2Promises]);
+      }
+    } else {
+      const tail = remaining.slice(0, Math.max(0, 6 - shownKeys.size));
+      if (tail.length > 0) {
+        statsRef.total = shownKeys.size + tail.length;
+        els.vortexCount.textContent = `${statsRef.absorbed} / ${statsRef.total}`;
+        tail.forEach((tr, idx) => {
+          const slot = nextSlot++;
+          activePromises.push(
+            sleepMs(idx * 260).then(() => animateSingleSwarmCard(tr, slot, runToken, statsRef))
+          );
+        });
+      } else {
+        statsRef.total = Math.max(1, shownKeys.size);
+        els.vortexCount.textContent = `${statsRef.absorbed} / ${statsRef.total}`;
+      }
+      await Promise.all(activePromises);
+    }
+
+    if (runToken !== state.swarmToken) return;
+    els.swarmVortex.classList.add("collapsing");
+    await sleepMs(260);
+    if (runToken === state.swarmToken) closeSwarmStage(false, false);
+  }
+
+  async function init() {
+    initFlockCursors();
+    try {
+      let data = null;
+      const apiResp = await fetch("/api/datasets").catch(() => null);
+      if (apiResp && apiResp.ok && (apiResp.headers.get("content-type") || "").includes("json")) {
+        data = await apiResp.json();
+        state.staticMode = false;
+      } else {
+        const stResp = await fetch("./static_data/datasets.json");
+        if (!stResp.ok) throw new Error(`HTTP ${stResp.status}`);
+        data = await stResp.json();
+        state.staticMode = true;
+      }
+      state.datasets = data.datasets || [];
+      els.datasetSelect.innerHTML = state.datasets
+        .map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+
+      const params = new URLSearchParams(window.location.search);
+      const reqDs = params.get("dataset");
+      const reqHit = params.get("hit");
+      const firstId = state.datasets.some(d => d.id === reqDs) ? reqDs : (state.datasets[0] && state.datasets[0].id);
+      if (firstId) {
+        els.datasetSelect.value = firstId;
+        await loadDataset(firstId, reqHit);
+      }
+    } catch (err) {
+      closeSwarmStage(true, true);
+      els.canvas.innerHTML = `<div class="loading-state" style="color:#fb7185;">Connection error: ${esc(err.message)}</div>`;
+    }
+  }
+
+  async function loadDataset(datasetId, preferHitId = null) {
+    state.currentDataset = datasetId;
+    state.selectedCandidateIdx = 0;
+    state.studioBuildToken += 1;
+    state.pendingStudioBuild = true;
+    closeSheet();
+    els.railList.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving…</div>`;
+    els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving "${esc(datasetId)}" dataset…</div>`;
+
+    const summaryUrl = state.staticMode
+      ? `./static_data/${encodeURIComponent(datasetId)}/summary.json`
+      : `/api/datasets/${encodeURIComponent(datasetId)}/summary`;
+    const summaryPromise = fetch(summaryUrl).then(r => r.json());
+    const swarmAnim = runSwarmSequence(datasetId, summaryPromise, false);
+
+    const data = await summaryPromise;
+    if (state.currentDataset !== datasetId) return;
+    state.summary = data;
+    const meta = state.datasets.find(d => d.id === datasetId);
+    if (meta) meta.loaded = true;
+
+    state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
+    els.searchInput.value = "";
+    els.resStatusFilter.value = "ALL";
+    els.labeledOnlyChk.checked = false;
+
+    const rcs = Object.entries(state.summary.reason_counts || {});
+    els.reasonFilter.innerHTML = `<option value="ALL">All reason codes</option>` +
+      rcs.map(([c, n]) => `<option value="${esc(c)}">${esc(c)} (${n})</option>`).join("");
+
+    renderTopTelemetry();
+    const hitTask = applyFilters(preferHitId);
+    await swarmAnim;
+    await hitTask;
+    if (state.currentDataset === datasetId && state.pendingStudioBuild && state.lastRenderedDetail) {
+      await sleepMs(140);
+      if (state.currentDataset === datasetId && state.pendingStudioBuild) {
+        await runStudioCursorBuild(state.lastRenderedDetail);
+      }
+    }
+  }
+
+  function renderTopTelemetry() {
+    const sum = state.summary;
+    const total = (sum.totals && sum.totals.hits) || 0;
+    const dc = sum.decision_counts || {};
+    const diff = dc.DIFFERENT_ENTITY || 0;
+    const same = dc.SAME_ENTITY || 0;
+    const rev = dc.REVIEW || 0;
+    const pct = n => total ? ((100 * n) / total).toFixed(1) + "%" : "0%";
+
+    els.specDiff.style.width = pct(diff);
+    els.specSame.style.width = pct(same);
+    els.specRev.style.width = pct(rev);
+
+    const items = [
+      { id: "ALL", cls: "", dot: "cobalt", lbl: "ALL", val: total },
+      { id: "DIFFERENT_ENTITY", cls: "diff", dot: "diff", lbl: "CLEARED", val: diff },
+      { id: "SAME_ENTITY", cls: "same", dot: "same", lbl: "MATCHED", val: same },
+      { id: "REVIEW", cls: "rev", dot: "rev", lbl: "REVIEW", val: rev },
+    ];
+    els.telemetryStrip.innerHTML = items.map(it => `
+      <button class="t-metric ${it.cls} ${state.filters.decision === it.id ? "active" : ""}" data-dec="${it.id}">
+        <span class="dot ${it.dot}"></span>
+        <span>${it.lbl}</span>
+        <strong>${it.val}</strong>
+      </button>
+    `).join("");
+
+    els.telemetryStrip.querySelectorAll(".t-metric").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const d = btn.getAttribute("data-dec");
+        state.filters.decision = (state.filters.decision === d && d !== "ALL") ? "ALL" : d;
+        renderTopTelemetry();
+        applyFilters();
+      });
+    });
+
+    const st = sum.label_stats;
+    const llm = sum.llm_info || {};
+    const llmTag = llm.enabled
+      ? `<span class="llm-tag" style="color:var(--cobalt-bright);" title="${esc(llm.backend)} · ${esc(llm.model)} · LLM calls: ${(llm.stats && llm.stats.requests_total) || 0}">${esc(llm.backend)} · ${esc(llm.model)}</span>`
+      : `<span class="llm-tag" style="color:var(--ink-3);">OFFLINE</span>`;
+    if (st) {
+      els.scoreReadout.innerHTML = `
+        ${llmTag}
+        <span style="color:var(--ink-4);">·</span>
+        <span>SCORE <span class="ok">${st.decision_score.toFixed(1)}</span></span>
+        <span style="color:var(--ink-4);">·</span>
+        <span>${st.right_decisions}/${st.total}</span>
+        <span style="color:var(--ink-4);">·</span>
+        <span>UNSAFE <span class="ok">${st.unsafe_clearances}</span></span>
+      `;
+    } else {
+      els.scoreReadout.innerHTML = `${llmTag} <span style="color:var(--ink-4);">·</span> <span>${sum.load_time_ms}ms</span>`;
+    }
+  }
+
+  function applyFilters(preferHitId = null) {
+    if (!state.summary) return;
+    const f = state.filters;
+    const q = f.search.trim().toLowerCase();
+    const list = state.summary.hits.filter(h => {
+      if (f.decision !== "ALL" && h.decision !== f.decision) return false;
+      if (f.reasonCode !== "ALL" && h.reason_code !== f.reasonCode) return false;
+      if (f.resStatus !== "ALL" && h.resolution_status !== f.resStatus) return false;
+      if (f.labeledOnly && !h.has_label) return false;
+      if (q) {
+        const hay = [h.hit_id, h.alert_id, h.customer_record_id || "null", h.customer_name, h.hit_name, h.reason_code, h.reason].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    state.filteredHits = list;
+    const dirty = f.decision !== "ALL" || f.reasonCode !== "ALL" || f.resStatus !== "ALL" || f.labeledOnly || q.length > 0;
+    els.resetBtn.style.display = dirty ? "inline" : "none";
+    els.railCount.textContent = `${list.length} / ${state.summary.hits.length} HITS · J/K`;
+
+    renderRail();
+
+    if (preferHitId && list.some(h => h.hit_id === preferHitId)) return selectHit(preferHitId);
+    else if (list.some(h => h.hit_id === state.selectedHitId)) return selectHit(state.selectedHitId, false);
+    else if (list.length > 0) return selectHit(list[0].hit_id);
+    else {
+      state.selectedHitId = null;
+      els.canvas.innerHTML = `<div class="loading-state">No hits match active filters.</div>`;
+    }
+    return Promise.resolve();
+  }
+
+  function renderRail() {
+    if (!state.filteredHits.length) {
+      els.railList.classList.remove("building-blank");
+      els.railList.innerHTML = `<div class="loading-state" style="padding:24px;">Empty queue</div>`;
+      return;
+    }
+    els.railList.classList.toggle("building-blank", Boolean(state.pendingStudioBuild));
+    els.railList.innerHTML = state.filteredHits.map(h => {
+      const cls = decCls(h.decision);
+      const act = h.hit_id === state.selectedHitId ? "active" : "";
+      const tick = h.label_match === "MATCH" ? `<span style="color:#34d399;font-size:10px;">✓</span>` : "";
+      return `
+        <div class="rail-row ${act}" data-hid="${esc(h.hit_id)}">
+          <div class="rr-top">
+            <span class="dot ${cls}"></span>
+            <span class="rr-id">${esc(h.hit_id)}</span>
+            ${tick}
+            <span class="rr-type">${esc(h.entity_type === "Company" ? "CO" : "IND")}</span>
+          </div>
+          <div class="rr-names">${esc(h.customer_name)} <span style="color:var(--ink-4);">${decOp(h.decision)}</span> ${esc(h.hit_name)}</div>
+          <div class="rr-sub">
+            <span>${esc(h.reason_code)}</span>
+            <span>${esc(h.customer_record_id === null ? "null" : h.customer_record_id)}</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    els.railList.querySelectorAll(".rail-row").forEach(row => {
+      row.addEventListener("click", () => selectHit(row.getAttribute("data-hid")));
+    });
+  }
+
+  async function selectHit(hitId, showLoader = true) {
+    state.selectedHitId = hitId;
+    state.selectedCandidateIdx = 0;
+    if (!els.swarmStage.classList.contains("active")) {
+      state.studioBuildToken += 1;
+      flockState.building = false;
+      updateFlockVisibility();
+    }
+
+    els.railList.querySelectorAll(".rail-row").forEach(r => {
+      r.classList.toggle("active", r.getAttribute("data-hid") === hitId);
+    });
+    const activeRow = els.railList.querySelector(".rail-row.active");
+    if (activeRow) activeRow.scrollIntoView({ block: "nearest" });
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("dataset", state.currentDataset);
+    url.searchParams.set("hit", hitId);
+    window.history.replaceState({}, "", url.toString());
+
+    const cacheKey = `${state.currentDataset}:${hitId}`;
+    let detail = state.detailCache.get(cacheKey);
+    if (!detail) {
+      if (showLoader) els.canvas.innerHTML = `<div class="loading-state"><span class="pulse-ring"></span> Resolving ${esc(hitId)}…</div>`;
+      if (state.staticMode) {
+        const hitMeta = state.summary && state.summary.hits && state.summary.hits.find(h => h.hit_id === hitId);
+        const chunkRel = hitMeta && hitMeta.chunk;
+        if (!chunkRel) throw new Error(`Missing static chunk for ${hitId}`);
+        const chunkUrl = `./static_data/${encodeURIComponent(state.currentDataset)}/${chunkRel}`;
+        if (!state.chunkPromises.has(chunkUrl)) {
+          state.chunkPromises.set(chunkUrl, fetch(chunkUrl).then(r => r.json()));
+        }
+        const chunkMap = await state.chunkPromises.get(chunkUrl);
+        Object.entries(chunkMap || {}).forEach(([hid, d]) => {
+          state.detailCache.set(`${state.currentDataset}:${hid}`, d);
+        });
+        detail = state.detailCache.get(cacheKey);
+      } else {
+        const resp = await fetch(`/api/datasets/${encodeURIComponent(state.currentDataset)}/hit/${encodeURIComponent(hitId)}`);
+        detail = await resp.json();
+        state.detailCache.set(cacheKey, detail);
+      }
+    }
+    if (detail) renderCanvas(detail);
+  }
+
+  function linkifyReason(text, recordsById) {
+    const re = /\b((?:CUS|KYC|NOTE|SR|ACC|APP|H|A)-[0-9A-Za-z]+)\b/g;
+    let out = "", last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      const id = m[1];
+      out += (recordsById && recordsById[id])
+        ? `<button class="ev-inline" data-inspect="${esc(id)}">${esc(id)}</button>`
+        : esc(id);
+      last = m.index + id.length;
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function renderPrecedenceTrack(detail, cand) {
+    const out = detail.output;
+    const ev = (cand && cand.evaluation) || {};
+    const applicable = new Set(ev.all_applicable_codes || []);
+    const firedCode = out.reason_code;
+    const dCls = decCls(out.decision);
+
+    const steps = [
+      { n: "01", key: "ENTITY_TYPE_MISMATCH", label: "TYPE" },
+      { n: "02", key: "DECEASED", label: "DECEASED" },
+      { n: "03", key: "TEMPORAL_IMPOSSIBILITY", label: "TEMPORAL" },
+      { n: "04", key: "DOB_MISMATCH", label: "DOB CHECK" },
+      { n: "05", key: "NAME_MISMATCH_VERIFIED", label: "VERIFIED NAME" },
+      { n: "06", key: "LOCATION_MISMATCH", label: "GEOGRAPHY" },
+      { n: "07", key: "FINAL", label: out.decision === "SAME_ENTITY" ? "CONFIRM" : "REVIEW" },
+    ];
+
+    let foundFired = false;
+    return `<div class="precedence-track">${steps.map(st => {
+      const isFinalMatch = st.key === "FINAL" && (out.decision === "SAME_ENTITY" || out.decision === "REVIEW");
+      const isFired = st.key === firedCode || isFinalMatch;
+      let stateTxt = "PASS";
+      if (isFired) {
+        foundFired = true;
+        stateTxt = out.decision === "REVIEW" ? "HELD" : "FIRED";
+      } else if (foundFired) {
+        stateTxt = applicable.has(st.key) ? "ALSO TRUE" : "SKIPPED";
+      }
+      return `
+        <div class="p-step ${isFired ? `fired ${dCls}` : ""}">
+          <div class="p-num"><span>${st.n}</span><span>${isFired ? "●" : "○"}</span></div>
+          <div class="p-name">${esc(st.label)}</div>
+          <div class="p-state">${stateTxt}</div>
+        </div>
+      `;
+    }).join("")}</div>`;
+  }
+
+  function renderProvenanceStreamSVG(detail, cand) {
+    const out = detail.output;
+    const alert = detail.alert;
+    const hitProf = detail.hit_profile;
+    const trail = (cand && cand.raw_trail) || {};
+    const searchRows = (detail.search_shield_trace && detail.search_shield_trace.candidates) || [];
+    const evSet = new Set(out.evidence || []);
+    const verdictColor = out.decision === "DIFFERENT_ENTITY" ? "#10b981" : (out.decision === "SAME_ENTITY" ? "#f43f5e" : "#f59e0b");
+
+    // Build Left Nodes (Customer Stream)
+    const left = [];
+    left.push({
+      id: cand && !cand.is_unresolved ? (cand.canonical_record_id || cand.record_ids[0]) : alert.alert_id,
+      kicker: detail.resolved_alert.resolution_status,
+      title: cand && !cand.is_unresolved ? (cand.canonical_record_id || "Cluster") : "Unresolved",
+      sub: cand ? `${cand.effective_name || "?"}${cand.record_ids.length > 1 ? ` (+${cand.record_ids.length - 1} merged)` : ""}` : "No CRM fit",
+      color: "#60a5fa",
+      active: true,
+      dashed: Boolean(cand && cand.is_unresolved),
+    });
+
+    (trail.kyc_checks || []).slice(0, 2).forEach(k => {
+      const ok = k._tier_status === "TIER_1_APPROVED";
+      left.push({
+        id: k.check_id,
+        kicker: ok ? "TIER 1 VERIFIED" : "TIER 0 EXCLUDED",
+        title: k.check_id,
+        sub: ok ? (k.verified_dob || k.verified_name || k.document_country || "Approved") : `${k.result || "Excluded"} (ignored)`,
+        color: ok ? "#10b981" : "#475569",
+        active: ok && evSet.has(k.check_id),
+        dashed: !ok,
+      });
+    });
+
+    (trail.notes || []).slice(0, 2).forEach(n => {
+      const excl = n._tier_status === "TIER_0_EXCLUDED";
+      left.push({
+        id: n.note_id,
+        kicker: excl ? "TIER 0 EXCLUDED" : `NOTE · ${(n.channel || "text").toUpperCase()}`,
+        title: n.note_id,
+        sub: (n.text || "").slice(0, 32) + ((n.text || "").length > 32 ? "…" : ""),
+        color: excl ? "#475569" : "#22d3ee",
+        active: !excl && evSet.has(n.note_id),
+        dashed: excl,
+      });
+    });
+
+    if ((trail.quarantined_customers || []).length > 0) {
+      const q = trail.quarantined_customers[0];
+      left.push({
+        id: q.record_id,
+        kicker: "QUARANTINED · DIFF DOB",
+        title: q.record_id,
+        sub: `${q.full_name || "Family"} (${q.dob || "?"})`,
+        color: "#f59e0b",
+        active: false,
+        dashed: true,
+      });
+    }
+
+    // Build Right Nodes (Watchlist & Anti-Namesake Shield)
+    const right = [];
+    right.push({
+      id: hitProf.hit_id,
+      kicker: `WATCHLIST · ${hitProf.entity_type.toUpperCase()}`,
+      title: hitProf.hit_id,
+      sub: `${hitProf.primary_name} · ${hitProf.countries.map(c => c.iso).join(",") || "No Geo"}`,
+      color: "#818cf8",
+      active: true,
+      dashed: false,
+    });
+
+    const sortedSr = [...searchRows].sort((a, b) => {
+      const rank = s => s === "USED_FOR_DOB" ? 0 : (s === "ANCHORED_NO_DOB" ? 1 : (s === "BLOCKED" ? 2 : 3));
+      return rank(a.status) - rank(b.status);
+    });
+    const anchoredSr = sortedSr.filter(r => r.status === "USED_FOR_DOB" || r.status === "ANCHORED_NO_DOB");
+    const blockedSr = sortedSr.filter(r => r.status === "BLOCKED");
+
+    anchoredSr.slice(0, 2).forEach(r => {
+      right.push({
+        id: r.result_id,
+        kicker: "SHIELD · ANCHORED",
+        title: r.result_id,
+        sub: (hitProf.dob_detail || r.title || "").slice(0, 32),
+        color: "#10b981",
+        active: true,
+        dashed: false,
+      });
+    });
+
+    if (blockedSr.length > 0) {
+      const br = blockedSr[0].block_reason || "Namesake rejected";
+      right.push({
+        id: blockedSr[0].result_id,
+        kicker: `SHIELD · ${blockedSr.length} DECOY${blockedSr.length > 1 ? "S" : ""} BLOCKED`,
+        title: blockedSr.length === 1 ? blockedSr[0].result_id : `${blockedSr[0].result_id} +${blockedSr.length - 1}`,
+        sub: br.length > 32 ? br.slice(0, 32) + "…" : br,
+        color: "#f43f5e",
+        active: false,
+        dashed: true,
+      });
+    } else if (hitProf.earliest_report_date || hitProf.deceased_date) {
+      right.push({
+        id: hitProf.hit_id,
+        kicker: hitProf.deceased_date ? "DECEASED DATE" : "DATED REPORT",
+        title: hitProf.deceased_date || hitProf.earliest_report_date,
+        sub: hitProf.deceased_date ? `Died before ${detail.screened_at}` : "Earliest 'According to' report",
+        color: "#f43f5e",
+        active: evSet.has(hitProf.hit_id) || out.reason_code === "TEMPORAL_IMPOSSIBILITY",
+        dashed: false,
+      });
+    }
+
+    const nodeH = 54, gap = 14, pad = 16;
+    const maxRows = Math.max(left.length, right.length, 2);
+    const svgH = Math.max(190, pad * 2 + maxRows * nodeH + (maxRows - 1) * gap);
+    const midY = svgH / 2;
+
+    const leftYs = left.map((_, i) => (svgH - (left.length * nodeH + (left.length - 1) * gap)) / 2 + i * (nodeH + gap));
+    const rightYs = right.map((_, i) => (svgH - (right.length * nodeH + (right.length - 1) * gap)) / 2 + i * (nodeH + gap));
+
+    let paths = "";
+    let pulses = "";
+
+    left.forEach((n, i) => {
+      const y = leftYs[i] + nodeH / 2;
+      const d = `M 284 ${y} C 350 ${y}, 355 ${midY}, 405 ${midY}`;
+      const col = n.active ? verdictColor : (n.dashed ? n.color : "#334155");
+      paths += `<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${n.active ? 0.85 : 0.28}" stroke-width="${n.active ? 1.8 : 1}" ${n.dashed ? 'stroke-dasharray="4 4"' : ""}/>`;
+      if (n.active) {
+        pulses += `<circle r="2.6" fill="${verdictColor}"><animateMotion dur="2.6s" repeatCount="indefinite" path="${d}"/></circle>`;
+      }
+    });
+
+    right.forEach((n, i) => {
+      const y = rightYs[i] + nodeH / 2;
+      const d = `M 716 ${y} C 650 ${y}, 645 ${midY}, 595 ${midY}`;
+      const col = n.active ? verdictColor : (n.dashed ? n.color : "#334155");
+      paths += `<path d="${d}" fill="none" stroke="${col}" stroke-opacity="${n.active ? 0.85 : 0.28}" stroke-width="${n.active ? 1.8 : 1}" ${n.dashed ? 'stroke-dasharray="4 4"' : ""}/>`;
+      if (n.active) {
+        pulses += `<circle r="2.6" fill="${verdictColor}"><animateMotion dur="2.6s" repeatCount="indefinite" path="${d}"/></circle>`;
+      }
+    });
+
+    function nodeSvg(x, y, w, n) {
+      const fill = n.active ? "rgba(15, 23, 42, 0.92)" : "rgba(7, 12, 26, 0.72)";
+      return `
+        <g class="s-node" data-inspect="${esc(n.id)}">
+          <rect x="${x}" y="${y}" width="${w}" height="${nodeH}" rx="3" fill="${fill}" stroke="${n.color}" stroke-opacity="${n.active ? 0.85 : 0.4}" stroke-width="${n.active ? 1.4 : 1}" ${n.dashed ? 'stroke-dasharray="4 3"' : ""}/>
+          <text x="${x + 12}" y="${y + 16}" fill="${n.color}" font-size="8.8" font-weight="600" letter-spacing="0.8" font-family="ui-monospace, monospace">${esc(n.kicker)}</text>
+          <text x="${x + 12}" y="${y + 32}" fill="#f8fafc" font-size="11.5" font-weight="600" font-family="ui-monospace, monospace">${esc(n.title)}</text>
+          <text x="${x + 12}" y="${y + 46}" fill="#94a3b8" font-size="10">${esc(n.sub)}</text>
+        </g>
+      `;
+    }
+
+    const centerNode = `
+      <g class="s-node" data-inspect="__OUTPUT__">
+        <rect x="405" y="${midY - 38}" width="190" height="76" rx="4" fill="rgba(7, 12, 26, 0.96)" stroke="${verdictColor}" stroke-width="1.8"/>
+        <text x="500" y="${midY - 17}" text-anchor="middle" fill="#64748b" font-size="8.8" font-weight="600" letter-spacing="1.2" font-family="ui-monospace, monospace">POLICY VERDICT</text>
+        <text x="500" y="${midY + 4}" text-anchor="middle" fill="#f8fafc" font-size="13.5" font-weight="700" font-family="ui-monospace, monospace">${esc(out.decision)}</text>
+        <text x="500" y="${midY + 23}" text-anchor="middle" fill="${verdictColor}" font-size="10" font-weight="600" font-family="ui-monospace, monospace">${esc(out.reason_code)}</text>
+      </g>
+    `;
+
+    return `
+      <svg class="stream-svg" viewBox="0 0 1000 ${svgH}" preserveAspectRatio="xMidYMid meet">
+        ${paths}
+        ${pulses}
+        ${left.map((n, i) => nodeSvg(14, leftYs[i], 270, n)).join("")}
+        ${centerNode}
+        ${right.map((n, i) => nodeSvg(716, rightYs[i], 270, n)).join("")}
+      </svg>
+    `;
+  }
+
+  function highlightSnippet(text, phrase, countries) {
+    let html = esc(text || "");
+    if (phrase) {
+      const reP = new RegExp(`(${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      html = html.replace(reP, '<span class="hl-phrase">$1</span>');
+    }
+    (countries || []).forEach(c => {
+      if (c.name && c.name.length > 2) {
+        const reC = new RegExp(`\\b(${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi");
+        html = html.replace(reC, '<span class="hl-country">$1</span>');
+      }
+    });
+    return html;
+  }
+
+  function renderCanvas(detail) {
+    state.lastRenderedDetail = detail;
+    els.canvas.classList.toggle("building-blank", Boolean(state.pendingStudioBuild));
+    const out = detail.output;
+    const resAlert = detail.resolved_alert;
+    const hitProf = detail.hit_profile;
+    const cands = resAlert.candidates || [];
+    const cand = cands[state.selectedCandidateIdx] || cands[0];
+    const ev = (cand && cand.evaluation) || {};
+    const facts = ev.facts || {};
+    const dCls = decCls(out.decision);
+
+    const custDisplay = (cand && cand.effective_name) || (detail.alert.customer && detail.alert.customer.name) || "Unknown";
+    const cidDisplay = out.customer_record_id === null ? "null" : out.customer_record_id;
+
+    let lblStatus = "";
+    if (detail.label) {
+      lblStatus = detail.label_match === "MATCH"
+        ? `<span class="mono" style="color:#34d399;font-size:11px;">✓ MATCHES LABEL</span>`
+        : `<span class="mono" style="color:#fbbf24;font-size:11px;">LABEL: ${esc(detail.label.decision)}</span>`;
+    }
+
+    // Multi-candidate bar if AMBIGUOUS
+    const candStripHtml = cands.length > 1 ? `
+      <div class="cand-strip">
+        ${cands.map((c, idx) => {
+          const cev = c.evaluation || {};
+          return `
+            <button class="cand-tab ${idx === state.selectedCandidateIdx ? "active" : ""}" data-cidx="${idx}">
+              <div class="mono" style="font-size:11px;font-weight:600;color:var(--ink);">
+                <span class="dot ${decCls(cev.decision)}" style="margin-right:6px;"></span>${esc(c.canonical_record_id || c.cluster_id)}
+              </div>
+              <div class="mono" style="font-size:10px;color:var(--ink-3);margin-top:2px;">
+                ${esc(c.effective_name || "?")} · ${esc(c.dob || "No DOB")} → ${esc(cev.reason_code || "—")}
+              </div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    ` : "";
+
+    // Ledger comparisons
+    const etOp = cand && cand.entity_type === hitProf.entity_type ? `<span style="color:var(--ink-3);">==</span>` : `<span style="color:var(--emerald);">≠</span>`;
+    const nameOp = facts.short_individual_name
+      ? `<span style="color:var(--amber);">?</span>`
+      : (facts.name_agrees ? `<span style="color:var(--crimson);">≡</span>` : ((ev.all_applicable_codes || []).includes("NAME_MISMATCH_VERIFIED") ? `<span style="color:var(--emerald);">≠</span>` : `<span style="color:var(--ink-3);">?</span>`));
+    const dobOp = facts.dob_status === "CONTRADICT"
+      ? `<span style="color:var(--emerald);">≠</span>`
+      : (facts.dob_status === "AGREE" ? `<span style="color:var(--crimson);">≡</span>` : `<span style="color:var(--ink-3);">?</span>`);
+    const sharedSet = new Set(facts.shared_countries || []);
+    const geoOp = sharedSet.size > 0
+      ? `<span style="color:var(--crimson);">∩</span>`
+      : (facts.countries_disjoint ? `<span style="color:var(--emerald);">≠</span>` : `<span style="color:var(--ink-3);">?</span>`);
+    const tempOp = (ev.all_applicable_codes || []).some(c => c === "DECEASED" || c === "TEMPORAL_IMPOSSIBILITY")
+      ? `<span style="color:var(--emerald);">≠</span>`
+      : `<span style="color:var(--ink-3);">—</span>`;
+
+    const wfStepNames = {
+      dobs_field: "Step 1 · Structured hit.dobs[]",
+      profile_notes: "Step 2 · First-para profile_notes",
+      search_results: "Step 3 · Anchored search_results",
+    };
+
+    // Search Shield rows
+    const st = detail.search_shield_trace || { candidates: [] };
+    const shieldHtml = (st.candidates || []).length > 0 ? `
+      <section class="section-block">
+        <div class="section-head">
+          <span class="kicker">ANTI-NAMESAKE SEARCH SHIELD · REQUIRED PHRASE: “${esc(st.listing_phrase)}”</span>
+          <span class="mono" style="font-size:11px;color:var(--ink-3);">${st.candidates.length} CANDIDATES EVALUATED</span>
+        </div>
+        <div>
+          ${st.candidates.map(r => {
+            const ok = r.status === "USED_FOR_DOB" || r.status === "ANCHORED_NO_DOB";
+            const statusCol = ok ? "#34d399" : (r.status === "BLOCKED" ? "#fb7185" : "#64748b");
+            return `
+              <div class="shield-row" data-inspect="${esc(r.result_id)}">
+                <div class="mono" style="font-size:11.5px;font-weight:600;color:var(--ink);">${esc(r.result_id)}</div>
+                <div>
+                  <div style="font-size:12.5px;font-weight:500;color:var(--ink);margin-bottom:3px;">${esc(r.title || "")}</div>
+                  <div style="font-size:12px;color:var(--ink-2);line-height:1.55;">${highlightSnippet(r.snippet, st.listing_phrase, r.found_countries)}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="mono" style="font-size:10.5px;font-weight:700;color:${statusCol};">${esc(r.status)}</div>
+                  ${r.block_reason ? `<div style="font-size:10.5px;color:var(--ink-3);margin-top:3px;">${esc(r.block_reason)}</div>` : ""}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    ` : "";
+
+    // Watchlist Profile Notes
+    const pnRaw = detail.hit_raw && detail.hit_raw.profile_notes;
+    const notesHtml = pnRaw ? `
+      <section class="section-block">
+        <div class="section-head">
+          <span class="kicker">WATCHLIST PROFILE NOTES</span>
+          <button class="ghost-btn" data-inspect="${esc(hitProf.hit_id)}">INSPECT RAW HIT →</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.65;color:var(--ink-2);white-space:pre-wrap;max-width:900px;">${
+          esc(pnRaw).replace(/(According to [^\n:]+;\s*[^:\n]+:)/gi, '<span class="hl-date">$1</span>')
+        }</div>
+      </section>
+    ` : "";
+
+    // Trail Summary Grid
+    const trail = (cand && cand.raw_trail) || {};
+    const trailItems = [];
+    (trail.customers || []).forEach(c => trailItems.push({ id: c.record_id, tag: c.record_id === cand.canonical_record_id ? "CRM · CANONICAL" : "CRM · MERGED", title: c.full_name, sub: `${c.dob || "No DOB"} · ${c.residence_country || "?"}`, excl: false }));
+    (trail.quarantined_customers || []).forEach(q => trailItems.push({ id: q.record_id, tag: "QUARANTINED · FAMILY", title: q.full_name, sub: `Shared phone, DOB ${q.dob || "?"}`, excl: true }));
+    (trail.kyc_checks || []).forEach(k => trailItems.push({ id: k.check_id, tag: k._tier_status === "TIER_1_APPROVED" ? "KYC · TIER 1 APPROVED" : "KYC · TIER 0 EXCLUDED", title: k.verified_name || k.check_id, sub: `${k.verified_dob || "No DOB"} · ${k.document_country || "?"}`, excl: k._tier_status !== "TIER_1_APPROVED" }));
+    (trail.notes || []).forEach(n => trailItems.push({ id: n.note_id, tag: `NOTE · ${(n.channel || "note").toUpperCase()}`, title: (n.text || "").slice(0, 44) + "…", sub: n.created_at || "", excl: n._tier_status === "TIER_0_EXCLUDED" }));
+
+    els.canvas.innerHTML = `
+      <div class="canvas-inner">
+        <!-- EDITORIAL HERO -->
+        <section class="hero">
+          <div class="hero-ambient ${dCls}"></div>
+          <div class="hero-kicker-row">
+            <div class="kicker">
+              ${esc(out.hit_id)} &nbsp;/&nbsp; ALERT ${esc(out.alert_id)} &nbsp;/&nbsp; ${esc(resAlert.resolution_status)} &nbsp;/&nbsp; ${esc(hitProf.entity_type)} &nbsp;/&nbsp; SCREENED ${esc(detail.screened_at)}
+            </div>
+            <div class="hero-actions">
+              ${lblStatus}
+              <button class="ghost-btn" data-inspect="__OUTPUT__">OUTPUT JSONL ↗</button>
+            </div>
+          </div>
+
+          <h1 class="hero-headline">
+            <span>${esc(custDisplay)}</span>
+            <span class="hero-op ${dCls}">${decOp(out.decision)}</span>
+            <span class="hero-hit-name">${esc(hitProf.primary_name)}</span>
+          </h1>
+
+          <div class="verdict-row">
+            <span class="verdict-label ${dCls}"><span class="dot ${dCls}"></span>${esc(out.decision)}</span>
+            <span class="code-tag">${esc(out.reason_code)}</span>
+            <span class="meta-tag">CUSTOMER_ID: <strong style="color:var(--ink-2);">${esc(cidDisplay)}</strong></span>
+          </div>
+
+          <p class="narrative-prose">${linkifyReason(out.reason || "", detail.records_by_id)}</p>
+
+          <div class="evidence-strip">
+            <span class="kicker">DECIDING EVIDENCE</span>
+            ${(out.evidence || []).map(id => `<button class="ev-link" data-inspect="${esc(id)}">${esc(id)}</button>`).join("")}
+          </div>
+        </section>
+
+        <!-- HORIZONTAL POLICY PRECEDENCE PIPELINE -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">POLICY PRECEDENCE EVALUATION PIPELINE</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLEARANCE 60:3 · CONFIRMATION 2:2</span>
+          </div>
+          ${renderPrecedenceTrack(detail, cand)}
+          ${candStripHtml}
+        </section>
+
+        <!-- FULL-BLEED ANIMATED NEURAL PROVENANCE STREAM -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">NEURO-SYMBOLIC PROVENANCE STREAM</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLICK ANY NODE TO INSPECT SOURCE</span>
+          </div>
+          <div class="stream-stage">${renderProvenanceStreamSVG(detail, cand)}</div>
+        </section>
+
+        <!-- OPEN-CANVAS HAIRLINE T-ACCOUNT LEDGER -->
+        <section class="section-block">
+          <div class="section-head">
+            <span class="kicker">ENTITY COMPARISON LEDGER</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink-3);">TIER 1 VERIFIED &gt; TIER 2 DECLARED &gt; TIER 3 CONTEXTUAL</span>
+          </div>
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Customer Side (Reconstructed)</th>
+                <th style="text-align:center;">Op</th>
+                <th>Watchlist Subject (Resolved)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ledger-dim">Entity Type</td>
+                <td>${esc(cand ? cand.entity_type : "—")}</td>
+                <td class="ledger-op">${etOp}</td>
+                <td>${esc(hitProf.entity_type)}</td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Identity</td>
+                <td>
+                  ${cand && cand.verified_name ? `<div><span class="tier-tag">T1 VERIFIED</span><strong>${esc(cand.verified_name)}</strong> <button class="ev-inline" data-inspect="${esc(cand.verified_name_source_id)}">${esc(cand.verified_name_source_id)}</button></div>` : ""}
+                  ${(cand && cand.declared_names || []).map(d => `<div class="sub-line">Declared: ${esc(d.name)} <button class="ev-inline" data-inspect="${esc(d.source_id)}">${esc(d.source_id)}</button></div>`).join("")}
+                </td>
+                <td class="ledger-op">${nameOp}</td>
+                <td>
+                  <div><strong>${esc(hitProf.primary_name)}</strong></div>
+                  ${hitProf.all_names.length > 1 ? `<div class="sub-line">Aliases: ${esc(hitProf.all_names.slice(1).join(" · "))}</div>` : ""}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Birth / Inc.</td>
+                <td>
+                  ${cand && cand.dob
+                    ? `<span class="tier-tag">${cand.dob_is_verified ? "T1 VERIFIED" : "T2 DECLARED"}</span><strong class="mono">${esc(cand.dob)}</strong> <button class="ev-inline" data-inspect="${esc(cand.dob_source_id)}">${esc(cand.dob_source_id)}</button>`
+                    : `<span style="color:var(--ink-4);">Not settled</span>`}
+                </td>
+                <td class="ledger-op">${dobOp}</td>
+                <td>
+                  ${hitProf.dobs && hitProf.dobs.length
+                    ? `<div class="mono"><strong>${esc(hitProf.dobs.join(", "))}</strong></div><div class="sub-line">${esc(wfStepNames[hitProf.dob_source] || hitProf.dob_source)}${hitProf.dob_detail ? ` · ${esc(hitProf.dob_detail)}` : ""}</div>`
+                    : `<span style="color:var(--ink-4);">None across 3-step waterfall</span>`}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Geography</td>
+                <td>
+                  ${(cand && cand.countries || []).length
+                    ? cand.countries.map(c => `<span style="margin-right:10px;${sharedSet.has(c.iso) ? "color:#fb7185;font-weight:600;" : ""}">${esc(c.name)} <span class="mono" style="color:var(--ink-3);">(${esc(c.iso)})</span></span>`).join("")
+                    : `<span style="color:var(--ink-4);">None settled</span>`}
+                </td>
+                <td class="ledger-op">${geoOp}</td>
+                <td>
+                  ${(hitProf.countries || []).length
+                    ? hitProf.countries.map(c => `<span style="margin-right:10px;${sharedSet.has(c.iso) ? "color:#fb7185;font-weight:600;" : ""}">${esc(c.name)} <span class="mono" style="color:var(--ink-3);">(${esc(c.iso)})</span></span>`).join("")
+                    : `<span style="color:var(--ink-4);">None listed</span>`}
+                </td>
+              </tr>
+              <tr>
+                <td class="ledger-dim">Temporal</td>
+                <td>
+                  <span class="mono">Screened ${esc(detail.screened_at)}</span>
+                  ${facts.max_age_at_report !== null && facts.max_age_at_report !== undefined ? `<div class="sub-line">Max age at earliest report: <strong>${facts.max_age_at_report}</strong> (policy floor 16)</div>` : ""}
+                </td>
+                <td class="ledger-op">${tempOp}</td>
+                <td>
+                  ${hitProf.deceased_date ? `<div class="mono">Deceased: <strong>${esc(hitProf.deceased_date)}</strong></div>` : (hitProf.life_status ? `<div class="sub-line">Life status: ${esc(hitProf.life_status)} (no deceased_date)</div>` : "")}
+                  ${hitProf.earliest_report_date ? `<div class="mono">Earliest dated report: <strong>${esc(hitProf.earliest_report_date)}</strong></div>` : (!hitProf.deceased_date && !hitProf.life_status ? `<span style="color:var(--ink-4);">No dated report or death date</span>` : "")}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        ${shieldHtml}
+        ${notesHtml}
+
+        <!-- CUSTOMER SOURCE TRAIL -->
+        ${trailItems.length ? `
+          <section class="section-block" style="border-bottom:none;">
+            <div class="section-head">
+              <span class="kicker">RESOLVED CUSTOMER RECORD TRAIL (${trailItems.length})</span>
+              <span class="mono" style="font-size:10.5px;color:var(--ink-3);">CLICK TO INSPECT</span>
+            </div>
+            <div class="trail-list">
+              ${trailItems.map(it => `
+                <div class="trail-cell ${it.excl ? "excluded" : ""}" data-inspect="${esc(it.id)}">
+                  <div class="kicker" style="color:${it.excl ? "#f59e0b" : "var(--cobalt-bright)"};">${esc(it.tag)}</div>
+                  <div class="mono" style="font-size:12px;font-weight:600;color:var(--ink);margin-top:4px;">${esc(it.id)}</div>
+                  <div style="font-size:12px;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(it.title || "")}</div>
+                  <div class="sub-line">${esc(it.sub)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+        ` : ""}
+      </div>
+    `;
+
+    // Bind canvas click handlers
+    els.canvas.querySelectorAll("[data-inspect]").forEach(el => {
+      el.addEventListener("click", () => openSheet(detail, el.getAttribute("data-inspect")));
+    });
+    els.canvas.querySelectorAll("[data-cidx]").forEach(el => {
+      el.addEventListener("click", () => {
+        state.selectedCandidateIdx = parseInt(el.getAttribute("data-cidx"), 10) || 0;
+        renderCanvas(detail);
+      });
+    });
+  }
+
+  function openSheet(detail, recordId) {
+    if (recordId === "__OUTPUT__") {
+      state.sheetPayload = detail.output;
+      els.sheetKicker.textContent = "EMITTED JSONL RECORD";
+      els.sheetTitle.textContent = `${detail.output.hit_id} · ${detail.output.decision}`;
+      const lblBlock = detail.label
+        ? `<div class="kicker" style="margin:18px 0 8px;">GROUND-TRUTH / PRACTICE LABEL</div><pre class="code-block">${esc(JSON.stringify(detail.label, null, 2))}</pre>`
+        : "";
+      els.sheetBody.innerHTML = `<pre class="code-block">${esc(JSON.stringify(detail.output, null, 2))}</pre>${lblBlock}`;
+    } else {
+      const rec = detail.records_by_id && detail.records_by_id[recordId];
+      if (!rec) return;
+      state.sheetPayload = rec.data;
+      els.sheetKicker.textContent = rec.kind.toUpperCase();
+      els.sheetTitle.textContent = rec.id;
+      const entries = Object.entries(rec.data || {}).filter(([k]) => k !== "_tier_status");
+      const kv = entries.map(([k, v]) => `
+        <div class="sheet-k">${esc(k)}</div>
+        <div class="sheet-v">${v === null || v === undefined ? '<span style="color:var(--ink-4);">null</span>' : esc(typeof v === "object" ? JSON.stringify(v) : String(v))}</div>
+      `).join("");
+      els.sheetBody.innerHTML = `
+        <div class="sheet-kv">${kv}</div>
+        <div class="kicker" style="margin:16px 0 8px;">RAW JSON</div>
+        <pre class="code-block">${esc(JSON.stringify(rec.data, null, 2))}</pre>
+      `;
+    }
+    els.sheetBackdrop.classList.add("open");
+    els.forensicSheet.classList.add("open");
+  }
+
+  function closeSheet() {
+    els.sheetBackdrop.classList.remove("open");
+    els.forensicSheet.classList.remove("open");
+  }
+
+  // ⌘K Command Palette
+  function openCmdk() {
+    els.cmdkOverlay.classList.add("open");
+    els.cmdkInput.value = "";
+    renderCmdkResults("");
+    els.cmdkInput.focus();
+  }
+  function closeCmdk() {
+    els.cmdkOverlay.classList.remove("open");
+  }
+  function renderCmdkResults(query) {
+    const q = query.trim().toLowerCase();
+    const actions = [];
+    state.datasets.forEach(d => {
+      if (!q || d.name.toLowerCase().includes(q) || d.id.includes(q)) {
+        actions.push({ kind: "DATASET", title: `Switch to ${d.name}`, sub: d.id, run: () => { els.datasetSelect.value = d.id; loadDataset(d.id); } });
+      }
+    });
+    ["DIFFERENT_ENTITY", "SAME_ENTITY", "REVIEW", "AMBIGUOUS"].forEach(tag => {
+      if (!q || tag.toLowerCase().includes(q)) {
+        actions.push({
+          kind: "FILTER",
+          title: `Filter: ${tag}`,
+          sub: tag === "AMBIGUOUS" ? "Resolution status" : "Decision",
+          run: () => {
+            if (tag === "AMBIGUOUS") { state.filters.resStatus = "AMBIGUOUS"; els.resStatusFilter.value = "AMBIGUOUS"; }
+            else { state.filters.decision = tag; renderTopTelemetry(); }
+            applyFilters();
+          }
+        });
+      }
+    });
+    if (state.summary) {
+      const matches = state.summary.hits.filter(h =>
+        !q || [h.hit_id, h.customer_name, h.hit_name, h.reason_code, h.customer_record_id || ""].join(" ").toLowerCase().includes(q)
+      ).slice(0, 10);
+      matches.forEach(h => {
+        actions.push({
+          kind: h.hit_id,
+          title: `${h.customer_name} ${decOp(h.decision)} ${h.hit_name}`,
+          sub: h.reason_code,
+          run: () => selectHit(h.hit_id),
+        });
+      });
+    }
+    els.cmdkResults.innerHTML = actions.map((a, idx) => `
+      <div class="cmdk-item" data-aidx="${idx}">
+        <div>
+          <span class="mono" style="font-size:11px;color:var(--cobalt-bright);margin-right:10px;">${esc(a.kind)}</span>
+          <span style="font-size:12.5px;color:var(--ink);">${esc(a.title)}</span>
+        </div>
+        <span class="mono" style="font-size:10.5px;color:var(--ink-3);">${esc(a.sub)}</span>
+      </div>
+    `).join("");
+    els.cmdkResults.querySelectorAll(".cmdk-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const a = actions[parseInt(item.getAttribute("data-aidx"), 10)];
+        closeCmdk();
+        if (a) a.run();
+      });
+    });
+  }
+
+  // Event Wiring
+  els.datasetSelect.addEventListener("change", e => loadDataset(e.target.value));
+  els.searchInput.addEventListener("input", e => { state.filters.search = e.target.value; applyFilters(); });
+  els.reasonFilter.addEventListener("change", e => { state.filters.reasonCode = e.target.value; applyFilters(); });
+  els.resStatusFilter.addEventListener("change", e => { state.filters.resStatus = e.target.value; applyFilters(); });
+  els.labeledOnlyChk.addEventListener("change", e => { state.filters.labeledOnly = e.target.checked; applyFilters(); });
+  els.resetBtn.addEventListener("click", () => {
+    state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
+    els.searchInput.value = ""; els.reasonFilter.value = "ALL"; els.resStatusFilter.value = "ALL"; els.labeledOnlyChk.checked = false;
+    renderTopTelemetry(); applyFilters();
+  });
+
+  els.sheetBackdrop.addEventListener("click", closeSheet);
+  els.sheetCloseBtn.addEventListener("click", closeSheet);
+  els.sheetCopyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(state.sheetPayload, null, 2));
+      els.sheetCopyBtn.textContent = "COPIED ✓";
+      setTimeout(() => { els.sheetCopyBtn.textContent = "COPY JSON"; }, 1200);
+    } catch (_) {}
+  });
+
+  els.openCmdkBtn.addEventListener("click", openCmdk);
+  els.replaySwarmBtn.addEventListener("click", async () => {
+    if (state.currentDataset && state.summary) {
+      state.pendingStudioBuild = true;
+      renderRail();
+      if (state.lastRenderedDetail) renderCanvas(state.lastRenderedDetail);
+      await runSwarmSequence(state.currentDataset, Promise.resolve(state.summary), true);
+      if (state.pendingStudioBuild && state.lastRenderedDetail) {
+        await sleepMs(140);
+        if (state.pendingStudioBuild) await runStudioCursorBuild(state.lastRenderedDetail);
+      }
+    }
+  });
+  els.swarmSkipBtn.addEventListener("click", () => closeSwarmStage(false, true));
+  els.toggleFlockBtn.addEventListener("click", () => {
+    state.flockEnabled = !state.flockEnabled;
+    if (state.flockEnabled) wakeFlockAroundPointer();
+    updateFlockVisibility();
+  });
+  els.replayBuildBtn.addEventListener("click", () => {
+    if (state.lastRenderedDetail) {
+      state.pendingStudioBuild = true;
+      renderRail();
+      renderCanvas(state.lastRenderedDetail);
+      runStudioCursorBuild(state.lastRenderedDetail);
+    }
+  });
+  const onPointerActivity = e => {
+    flockState.mouse.x = e.clientX;
+    flockState.mouse.y = e.clientY;
+    flockState.mouse.active = true;
+    flockState.mouse.lastMove = performance.now();
+  };
+  window.addEventListener("pointermove", onPointerActivity, { passive: true });
+  window.addEventListener("pointerdown", onPointerActivity, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => {
+    flockState.mouse.active = false;
+  });
+  els.cmdkOverlay.addEventListener("click", e => { if (e.target === els.cmdkOverlay) closeCmdk(); });
+  els.cmdkInput.addEventListener("input", e => renderCmdkResults(e.target.value));
+
+  document.addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      els.cmdkOverlay.classList.contains("open") ? closeCmdk() : openCmdk();
+      return;
+    }
+    if (e.key === "Escape") {
+      if (els.swarmStage.classList.contains("active")) { closeSwarmStage(false, true); return; }
+      if (flockState.building) {
+        state.studioBuildToken += 1;
+        flockState.building = false;
+        restoreStudioStatic();
+        updateFlockVisibility();
+        return;
+      }
+      closeCmdk(); closeSheet(); return;
+    }
+    if (e.key === "/" && document.activeElement !== els.searchInput && !els.cmdkOverlay.classList.contains("open")) {
+      e.preventDefault(); els.searchInput.focus(); return;
+    }
+    if (document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+    if (!state.filteredHits.length) return;
+    const idx = state.filteredHits.findIndex(h => h.hit_id === state.selectedHitId);
+    if (e.key === "ArrowDown" || e.key === "j") {
+      e.preventDefault();
+      const next = state.filteredHits[Math.min(state.filteredHits.length - 1, idx + 1)];
+      if (next) selectHit(next.hit_id);
+    } else if (e.key === "ArrowUp" || e.key === "k") {
+      e.preventDefault();
+      const prev = state.filteredHits[Math.max(0, idx - 1)];
+      if (prev) selectHit(prev.hit_id);
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
