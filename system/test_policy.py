@@ -32,6 +32,7 @@ DEV_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dev"))
 _DEFAULT_VARIANTS = {
     "groups": [
         ["muhammad", "mohammed", "mohammad", "mohamed"],
+        ["ali", "aly"],
         ["mark", "marc", "marco"],
         ["markus", "marcus", "marcos"],
         ["thomas", "tom", "tommy"],
