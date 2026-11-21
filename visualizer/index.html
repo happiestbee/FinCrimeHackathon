@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EntityLens — Watchlist Entity Resolution Visualizer</title>
+<style>
+  :root {
+    --bg-base: #070b14;
+    --bg-surface: #0f172a;
+    --bg-elevated: #162033;
+    --bg-hover: #1e293b;
+    --border: #26334a;
+    --border-strong: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+
+    --emerald: #10b981;
+    --emerald-bg: rgba(16, 185, 129, 0.14);
+    --emerald-border: rgba(16, 185, 129, 0.38);
+
+    --rose: #f43f5e;
+    --rose-bg: rgba(244, 63, 94, 0.14);
+    --rose-border: rgba(244, 63, 94, 0.38);
+
+    --amber: #f59e0b;
+    --amber-bg: rgba(245, 158, 11, 0.14);
+    --amber-border: rgba(245, 158, 11, 0.38);
+
+    --indigo: #6366f1;
+    --indigo-bg: rgba(99, 102, 241, 0.16);
+    --indigo-border: rgba(99, 102, 241, 0.42);
+
+    --cyan: #06b6d4;
+    --cyan-bg: rgba(6, 182, 212, 0.14);
+    --cyan-border: rgba(6, 182, 212, 0.38);
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Layout Shell */
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Top Bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 18px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    color: #fff;
+    font-size: 14px;
+    letter-spacing: -0.5px;
+    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.35);
+  }
+  .brand-title {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.2px;
+  }
+  .brand-sub {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .topbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  select, input[type="text"], button {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  select, input[type="text"] { padding: 6px 10px; }
+  select:focus, input[type="text"]:focus { border-color: var(--indigo); }
+  button {
+    padding: 5px 10px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: var(--bg-hover); border-color: #475569; }
+
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: var(--emerald-bg);
+    border: 1px solid var(--emerald-border);
+    color: #6ee7b7;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .score-badge.warn {
+    background: var(--amber-bg);
+    border-color: var(--amber-border);
+    color: #fcd34d;
+  }
+  .cost-pill {
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Analytics Strip */
+  .analytics-strip {
+    background: #0b1120;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .kpi-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .kpi-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s, background 0.15s;
+    min-width: 145px;
+  }
+  .kpi-card:hover { background: var(--bg-elevated); border-color: #475569; }
+  .kpi-card.active {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px var(--cyan-border) inset;
+    background: rgba(6, 182, 212, 0.08);
+  }
+  .kpi-card.active.diff { border-color: var(--emerald); background: var(--emerald-bg); box-shadow: none; }
+  .kpi-card.active.same { border-color: var(--rose); background: var(--rose-bg); box-shadow: none; }
+  .kpi-card.active.rev { border-color: var(--amber); background: var(--amber-bg); box-shadow: none; }
+
+  .kpi-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .kpi-val {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-family: var(--font-mono);
+  }
+  .kpi-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+  .kpi-pct {
+    margin-left: auto;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .stacked-bar-wrap {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .stacked-bar {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    background: var(--bg-elevated);
+  }
+  .sb-diff { background: var(--emerald); }
+  .sb-same { background: var(--rose); }
+  .sb-rev { background: var(--amber); }
+  .stacked-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .reason-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .reason-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  .reason-chip:hover { border-color: #475569; color: var(--text-primary); }
+  .reason-chip.active {
+    background: var(--indigo-bg);
+    border-color: var(--indigo);
+    color: #c7d2fe;
+    font-weight: 600;
+  }
+  .reason-chip .rc-cnt {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.14);
+    color: var(--text-primary);
+  }
+
+  /* Split Main Workspace */
+  .workspace {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Left Queue Pane */
+  .queue-pane {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: #0a0f1c;
+    min-height: 0;
+  }
+  .queue-filters {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    background: var(--bg-surface);
+  }
+  .search-row {
+    display: flex;
+    gap: 6px;
+  }
+  .search-row input { flex: 1; }
+  .filter-subrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .filter-subrow select { flex: 1; padding: 4px 8px; font-size: 11px; }
+  .toggle-lbl {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .queue-meta {
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: #090d18;
+  }
+
+  .queue-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .queue-item {
+    padding: 9px 10px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: var(--bg-surface);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .queue-item:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
+  .queue-item.selected {
+    background: #17233b;
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25) inset;
+  }
+  .qi-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .qi-id {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .qi-mid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .qi-names {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qi-names strong { color: var(--text-primary); font-weight: 500; }
+
+  /* Pills & Badges */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .pill.diff { background: var(--emerald-bg); border-color: var(--emerald-border); color: #6ee7b7; }
+  .pill.same { background: var(--rose-bg); border-color: var(--rose-border); color: #fda4af; }
+  .pill.rev { background: var(--amber-bg); border-color: var(--amber-border); color: #fcd34d; }
+  .pill.indigo { background: var(--indigo-bg); border-color: var(--indigo-border); color: #c7d2fe; }
+  .pill.cyan { background: var(--cyan-bg); border-color: var(--cyan-border); color: #67e8f9; }
+  .pill.neutral { background: rgba(148, 163, 184, 0.12); border-color: var(--border-strong); color: var(--text-secondary); }
+  .pill.muted-strike {
+    background: rgba(100, 116, 139, 0.12);
+    border-color: var(--border);
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+  .pill.lg { padding: 4px 11px; font-size: 12px; }
+
+  .mono { font-family: var(--font-mono); }
+
+  /* Right Inspector Pane */
+  .inspector-pane {
+    overflow-y: auto;
+    padding: 16px 20px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+  }
+
+  .verdict-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .verdict-badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .reason-box {
+    background: #0b1120;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-primary);
+  }
+  .evidence-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .ev-chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: var(--indigo-bg);
+    border: 1px solid var(--indigo-border);
+    color: #c7d2fe;
+    cursor: pointer;
+  }
+  .ev-chip:hover { background: rgba(99, 102, 241, 0.28); }
+  .ev-chip.focused {
+    border-color: var(--cyan);
+    background: var(--cyan-bg);
+    color: #a5f3fc;
+    box-shadow: 0 0 0 1px var(--cyan);
+  }
+
+  /* Inline clickable IDs inside reason text */
+  .inline-id-btn {
+    display: inline;
+    padding: 0 4px;
+    margin: 0 1px;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    color: #c7d2fe;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .inline-id-btn:hover { background: rgba(6, 182, 212, 0.25); border-color: var(--cyan); color: #fff; }
+
+  /* SVG Graph */
+  .graph-wrap {
+    width: 100%;
+    overflow-x: auto;
+    background: radial-gradient(circle at top center, #111c33 0%, #090e1a 75%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .graph-svg {
+    width: 100%;
+    min-width: 760px;
+    display: block;
+  }
+  .g-node { cursor: pointer; transition: filter 0.12s; }
+  .g-node:hover { filter: brightness(1.18); }
+
+  /* Comparison Matrix Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    background: #0b1120;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* Multi-candidate cards */
+  .cand-row { cursor: pointer; }
+  .cand-row:hover td { background: rgba(148, 163, 184, 0.06); }
+  .cand-row.selected-cand td { background: rgba(6, 182, 212, 0.1); }
+
+  /* Tabs */
+  .tabs-nav {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 7px 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tab-btn:hover { background: transparent; color: var(--text-primary); border-color: transparent; }
+  .tab-btn.active {
+    color: #67e8f9;
+    border-bottom-color: var(--cyan);
+  }
+
+  .record-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 10px;
+  }
+  .record-card {
+    background: #0b1120;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .record-card.focused {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px var(--cyan);
+  }
+  .record-card.excluded {
+    opacity: 0.72;
+    border-style: dashed;
+  }
+  .kv-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    font-size: 11px;
+  }
+  .kv-k { color: var(--text-muted); font-family: var(--font-mono); }
+  .kv-v { color: var(--text-primary); word-break: break-word; }
+
+  pre.json-pre {
+    margin: 0;
+    padding: 10px;
+    border-radius: 6px;
+    background: #070b14;
+    border: 1px solid var(--border);
+    color: #cbd5e1;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    overflow-x: auto;
+    max-height: 360px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .note-highlight {
+    background: rgba(245, 158, 11, 0.16);
+    border-bottom: 1px dashed var(--amber);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  .loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 980px) {
+    html, body { height: auto; overflow: auto; }
+    .app-shell { height: auto; overflow: visible; }
+    .workspace { grid-template-columns: 1fr; overflow: visible; }
+    .queue-pane { max-height: 340px; border-right: none; border-bottom: 1px solid var(--border); }
+    .inspector-pane { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">EL</div>
+      <div>
+        <div class="brand-title">EntityLens <span style="color:var(--text-muted);font-weight:400;">· Neuro-Symbolic Watchlist Screening</span></div>
+        <div class="brand-sub" id="datasetMetaSub">Connecting to local resolver...</div>
+      </div>
+    </div>
+    <div class="topbar-controls">
+      <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+        Dataset:
+        <select id="datasetSelect" aria-label="Select dataset"></select>
+      </label>
+      <div id="scoreBadge" class="score-badge" style="display:none;"></div>
+      <div class="cost-pill" title="Policy decision-theoretic calibration">
+        Clearance <strong>60:3</strong> · Confirm <strong>2:2</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- ANALYTICS STRIP -->
+  <section class="analytics-strip">
+    <div class="kpi-row" id="kpiRow"></div>
+    <div class="reason-chips" id="reasonChips"></div>
+  </section>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="workspace">
+    <!-- LEFT QUEUE -->
+    <aside class="queue-pane">
+      <div class="queue-filters">
+        <div class="search-row">
+          <input id="searchInput" type="text" placeholder="Search hit, alert, CUS-, name, reason… (/)" />
+          <button id="resetFiltersBtn" title="Clear active filters" style="display:none;">Reset</button>
+        </div>
+        <div class="filter-subrow">
+          <select id="resStatusFilter" aria-label="Filter by customer resolution status">
+            <option value="ALL">Resolution: All</option>
+            <option value="LINKED">LINKED</option>
+            <option value="INFERRED_UNIQUE">INFERRED_UNIQUE</option>
+            <option value="AMBIGUOUS">AMBIGUOUS</option>
+            <option value="UNRESOLVED">UNRESOLVED</option>
+          </select>
+          <label class="toggle-lbl">
+            <input type="checkbox" id="labeledOnlyChk" />
+            Labeled only
+          </label>
+        </div>
+      </div>
+      <div class="queue-meta">
+        <span id="queueCountText">Loading…</span>
+        <span>↑ / ↓ navigate</span>
+      </div>
+      <div class="queue-list" id="queueList"></div>
+    </aside>
+
+    <!-- RIGHT INSPECTOR -->
+    <section class="inspector-pane" id="inspectorPane">
+      <div class="loading-overlay"><div class="spinner"></div> Loading screening results…</div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function() {
+  const state = {
+    datasets: [],
+    currentDataset: null,
+    summary: null,
+    filteredHits: [],
+    selectedHitId: null,
+    selectedCandidateIdx: 0,
+    focusedRecordId: null,
+    activeTab: "evidence",
+    detailCache: new Map(),
+    filters: {
+      decision: "ALL",
+      reasonCode: "ALL",
+      resStatus: "ALL",
+      labeledOnly: false,
+      search: "",
+    },
+  };
+
+  const els = {
+    datasetSelect: document.getElementById("datasetSelect"),
+    datasetMetaSub: document.getElementById("datasetMetaSub"),
+    scoreBadge: document.getElementById("scoreBadge"),
+    kpiRow: document.getElementById("kpiRow"),
+    reasonChips: document.getElementById("reasonChips"),
+    searchInput: document.getElementById("searchInput"),
+    resStatusFilter: document.getElementById("resStatusFilter"),
+    labeledOnlyChk: document.getElementById("labeledOnlyChk"),
+    resetFiltersBtn: document.getElementById("resetFiltersBtn"),
+    queueCountText: document.getElementById("queueCountText"),
+    queueList: document.getElementById("queueList"),
+    inspectorPane: document.getElementById("inspectorPane"),
+  };
+
+  function esc(val) {
+    if (val === null || val === undefined) return "";
+    return String(val)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function decClass(decision) {
+    if (decision === "DIFFERENT_ENTITY") return "diff";
+    if (decision === "SAME_ENTITY") return "same";
+    return "rev";
+  }
+
+  function decShort(decision) {
+    if (decision === "DIFFERENT_ENTITY") return "DIFFERENT";
+    if (decision === "SAME_ENTITY") return "SAME";
+    return "REVIEW";
+  }
+
+  async function init() {
+    try {
+      const resp = await fetch("/api/datasets");
+      const data = await resp.json();
+      state.datasets = data.datasets || [];
+      renderDatasetSelect();
+
+      const params = new URLSearchParams(window.location.search);
+      const reqDataset = params.get("dataset");
+      const reqHit = params.get("hit");
+      const initialId = state.datasets.some(d => d.id === reqDataset)
+        ? reqDataset
+        : (state.datasets[0] && state.datasets[0].id);
+
+      if (initialId) {
+        els.datasetSelect.value = initialId;
+        await loadDataset(initialId, reqHit);
+      }
+    } catch (err) {
+      els.inspectorPane.innerHTML = `<div class="card" style="border-color:var(--rose);">Failed to reach visualizer server: ${esc(err.message)}</div>`;
+    }
+  }
+
+  function renderDatasetSelect() {
+    els.datasetSelect.innerHTML = state.datasets
+      .map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`)
+      .join("");
+  }
+
+  async function loadDataset(datasetId, preferHitId = null) {
+    state.currentDataset = datasetId;
+    state.selectedCandidateIdx = 0;
+    state.focusedRecordId = null;
+    els.datasetMetaSub.textContent = `Loading "${datasetId}" dataset & resolving hits…`;
+    els.queueList.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Loading…</div>`;
+    els.inspectorPane.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Resolving dataset "${esc(datasetId)}"…</div>`;
+
+    const resp = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/summary`);
+    const summary = await resp.json();
+    state.summary = summary;
+
+    // Reset filters on dataset change
+    state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
+    els.searchInput.value = "";
+    els.resStatusFilter.value = "ALL";
+    els.labeledOnlyChk.checked = false;
+
+    const totals = summary.totals || {};
+    els.datasetMetaSub.textContent = `${totals.hits} hits · ${totals.alerts} alerts · ${totals.customers.toLocaleString()} CRM records · resolved offline in ${summary.load_time_ms} ms`;
+
+    renderScoreBadge(summary.label_stats);
+    renderAnalytics();
+    applyFilters(preferHitId);
+  }
+
+  function renderScoreBadge(stats) {
+    if (!stats) {
+      els.scoreBadge.style.display = "none";
+      return;
+    }
+    els.scoreBadge.style.display = "inline-flex";
+    const isPerfect = stats.unsafe_clearances === 0 && stats.decision_score >= 99.9;
+    els.scoreBadge.className = "score-badge" + (isPerfect ? "" : " warn");
+    els.scoreBadge.innerHTML = `
+      <span>Labels: <strong>${stats.right_decisions}/${stats.total}</strong></span>
+      <span>· Score <strong>${stats.decision_score.toFixed(1)}</strong></span>
+      <span>· <strong>${stats.unsafe_clearances}</strong> Unsafe</span>
+      <span style="opacity:0.85;">· Codes ${stats.reason_code_pct}% · CID ${stats.customer_id_pct}%</span>
+    `;
+  }
+
+  function renderAnalytics() {
+    const sum = state.summary;
+    const total = (sum.totals && sum.totals.hits) || 0;
+    const dc = sum.decision_counts || {};
+    const diff = dc.DIFFERENT_ENTITY || 0;
+    const same = dc.SAME_ENTITY || 0;
+    const rev = dc.REVIEW || 0;
+    const pct = n => total ? ((100 * n) / total).toFixed(1) + "%" : "0%";
+
+    const cards = [
+      { id: "ALL", cls: "", dot: "var(--cyan)", lbl: "All Hits", val: total, p: "100%" },
+      { id: "DIFFERENT_ENTITY", cls: "diff", dot: "var(--emerald)", lbl: "Different Entity", val: diff, p: pct(diff) },
+      { id: "SAME_ENTITY", cls: "same", dot: "var(--rose)", lbl: "Same Entity", val: same, p: pct(same) },
+      { id: "REVIEW", cls: "rev", dot: "var(--amber)", lbl: "Review", val: rev, p: pct(rev) },
+    ];
+
+    els.kpiRow.innerHTML = cards.map(c => `
+      <div class="kpi-card ${c.cls} ${state.filters.decision === c.id ? "active" : ""}" data-dec="${c.id}">
+        <span class="kpi-dot" style="background:${c.dot};"></span>
+        <div>
+          <div class="kpi-val">${c.val}</div>
+          <div class="kpi-lbl">${c.lbl}</div>
+        </div>
+        <div class="kpi-pct">${c.p}</div>
+      </div>
+    `).join("") + `
+      <div class="stacked-bar-wrap">
+        <div class="stacked-bar">
+          <div class="sb-diff" style="width:${pct(diff)};" title="DIFFERENT_ENTITY: ${diff}"></div>
+          <div class="sb-same" style="width:${pct(same)};" title="SAME_ENTITY: ${same}"></div>
+          <div class="sb-rev" style="width:${pct(rev)};" title="REVIEW: ${rev}"></div>
+        </div>
+        <div class="stacked-legend">
+          <span>Clearance ${pct(diff)}</span>
+          <span>Confirmed ${pct(same)}</span>
+          <span>Review ${pct(rev)}</span>
+        </div>
+      </div>
+    `;
+
+    els.kpiRow.querySelectorAll(".kpi-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const d = card.getAttribute("data-dec");
+        state.filters.decision = (state.filters.decision === d && d !== "ALL") ? "ALL" : d;
+        renderAnalytics();
+        applyFilters();
+      });
+    });
+
+    const rcEntries = Object.entries(sum.reason_counts || {});
+    els.reasonChips.innerHTML = `<span style="font-size:11px;color:var(--text-muted);margin-right:2px;">Reason Codes:</span>` +
+      rcEntries.map(([code, cnt]) => `
+        <span class="reason-chip ${state.filters.reasonCode === code ? "active" : ""}" data-rc="${esc(code)}">
+          <span>${esc(code)}</span>
+          <span class="rc-cnt">${cnt}</span>
+        </span>
+      `).join("");
+
+    els.reasonChips.querySelectorAll(".reason-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const rc = chip.getAttribute("data-rc");
+        state.filters.reasonCode = state.filters.reasonCode === rc ? "ALL" : rc;
+        renderAnalytics();
+        applyFilters();
+      });
+    });
+  }
+
+  function applyFilters(preferHitId = null) {
+    if (!state.summary) return;
+    const f = state.filters;
+    const q = f.search.trim().toLowerCase();
+
+    const filtered = state.summary.hits.filter(h => {
+      if (f.decision !== "ALL" && h.decision !== f.decision) return false;
+      if (f.reasonCode !== "ALL" && h.reason_code !== f.reasonCode) return false;
+      if (f.resStatus !== "ALL" && h.resolution_status !== f.resStatus) return false;
+      if (f.labeledOnly && !h.has_label) return false;
+      if (q) {
+        const hay = [
+          h.hit_id, h.alert_id, h.customer_record_id || "null",
+          h.customer_name, h.hit_name, h.reason_code, h.reason
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    state.filteredHits = filtered;
+    const anyFilter = f.decision !== "ALL" || f.reasonCode !== "ALL" || f.resStatus !== "ALL" || f.labeledOnly || q.length > 0;
+    els.resetFiltersBtn.style.display = anyFilter ? "inline-block" : "none";
+    els.queueCountText.textContent = `Showing ${filtered.length} of ${state.summary.hits.length} hits`;
+
+    renderQueue();
+
+    if (preferHitId && filtered.some(h => h.hit_id === preferHitId)) {
+      selectHit(preferHitId);
+    } else if (filtered.some(h => h.hit_id === state.selectedHitId)) {
+      selectHit(state.selectedHitId, false);
+    } else if (filtered.length > 0) {
+      selectHit(filtered[0].hit_id);
+    } else {
+      state.selectedHitId = null;
+      els.inspectorPane.innerHTML = `<div class="card" style="color:var(--text-secondary);">No hits match the current filters.</div>`;
+    }
+  }
+
+  function renderQueue() {
+    if (!state.filteredHits.length) {
+      els.queueList.innerHTML = `<div style="padding:20px;color:var(--text-muted);text-align:center;">No matching hits</div>`;
+      return;
+    }
+
+    const html = state.filteredHits.map(h => {
+      const sel = h.hit_id === state.selectedHitId ? "selected" : "";
+      const dc = decClass(h.decision);
+      let lblBadge = "";
+      if (h.label_match === "MATCH") lblBadge = `<span class="pill diff" title="Matches label & reason code">✓</span>`;
+      else if (h.label_match === "DECISION_ONLY") lblBadge = `<span class="pill rev" title="Decision matches label">~</span>`;
+      else if (h.label_match === "MISMATCH") lblBadge = `<span class="pill same" title="Decision mismatch vs label">✗</span>`;
+
+      const cidDisplay = h.customer_record_id === null ? "null" : h.customer_record_id;
+      return `
+        <div class="queue-item ${sel}" data-hid="${esc(h.hit_id)}">
+          <div class="qi-top">
+            <span class="qi-id">${esc(h.hit_id)}</span>
+            <span class="pill ${dc}">${decShort(h.decision)}</span>
+            ${lblBadge}
+            <span class="pill neutral" style="margin-left:auto;">${esc(h.entity_type)}</span>
+          </div>
+          <div class="qi-mid">
+            <span class="mono" style="color:#c7d2fe;">${esc(h.reason_code)}</span>
+            <span class="mono" style="color:var(--text-muted);">${esc(cidDisplay)}</span>
+          </div>
+          <div class="qi-names" title="${esc(h.customer_name)} ↔ ${esc(h.hit_name)}">
+            <strong>${esc(h.customer_name)}</strong> <span style="color:var(--text-muted);">↔</span> ${esc(h.hit_name)}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    els.queueList.innerHTML = html;
+    els.queueList.querySelectorAll(".queue-item").forEach(el => {
+      el.addEventListener("click", () => selectHit(el.getAttribute("data-hid")));
+    });
+  }
+
+  async function selectHit(hitId, reloadIfCached = true) {
+    state.selectedHitId = hitId;
+    state.selectedCandidateIdx = 0;
+    state.focusedRecordId = null;
+
+    // Update queue visual selection without re-rendering whole list
+    els.queueList.querySelectorAll(".queue-item").forEach(el => {
+      el.classList.toggle("selected", el.getAttribute("data-hid") === hitId);
+    });
+    const selEl = els.queueList.querySelector(".queue-item.selected");
+    if (selEl) selEl.scrollIntoView({ block: "nearest" });
+
+    // Sync query params unobtrusively
+    const url = new URL(window.location.href);
+    url.searchParams.set("dataset", state.currentDataset);
+    url.searchParams.set("hit", hitId);
+    window.history.replaceState({}, "", url.toString());
+
+    const cacheKey = `${state.currentDataset}:${hitId}`;
+    let detail = state.detailCache.get(cacheKey);
+    if (!detail) {
+      if (reloadIfCached) {
+        els.inspectorPane.innerHTML = `<div class="loading-overlay"><div class="spinner"></div> Inspecting ${esc(hitId)}…</div>`;
+      }
+      const resp = await fetch(`/api/datasets/${encodeURIComponent(state.currentDataset)}/hit/${encodeURIComponent(hitId)}`);
+      detail = await resp.json();
+      state.detailCache.set(cacheKey, detail);
+    }
+    renderInspector(detail);
+  }
+
+  function linkifyReasonText(text, recordsById) {
+    // Replace known ID tokens inside reason text with clickable buttons
+    const pattern = /\b((?:CUS|KYC|NOTE|SR|ACC|APP|H|A)-[0-9A-Za-z]+)\b/g;
+    let out = "";
+    let last = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      out += esc(text.slice(last, match.index));
+      const id = match[1];
+      if (recordsById && recordsById[id]) {
+        out += `<button class="inline-id-btn" data-focus-id="${esc(id)}" title="Inspect ${esc(id)}">${esc(id)}</button>`;
+      } else {
+        out += esc(id);
+      }
+      last = match.index + id.length;
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  function renderInspector(detail) {
+    const out = detail.output;
+    const resAlert = detail.resolved_alert;
+    const hitProf = detail.hit_profile;
+    const cands = resAlert.candidates || [];
+    const cand = cands[state.selectedCandidateIdx] || cands[0];
+    const dc = decClass(out.decision);
+
+    let labelPill = "";
+    if (detail.label) {
+      const lm = detail.label_match;
+      const cls = lm === "MATCH" ? "diff" : (lm === "DECISION_ONLY" ? "rev" : "same");
+      const txt = lm === "MATCH"
+        ? `✓ Expected: ${detail.label.decision}`
+        : `Label: ${detail.label.decision} (${(detail.label.reason_codes || []).join("/")})`;
+      labelPill = `<span class="pill ${cls}">${esc(txt)}</span>`;
+    }
+
+    const cidDisp = out.customer_record_id === null ? "null" : out.customer_record_id;
+    const evidenceChipsHtml = (out.evidence || []).map(id => {
+      const focused = state.focusedRecordId === id ? "focused" : "";
+      const recMeta = detail.records_by_id && detail.records_by_id[id];
+      const kindTitle = recMeta ? `${recMeta.kind}: ${id}` : id;
+      return `<button class="ev-chip ${focused}" data-focus-id="${esc(id)}" title="${esc(kindTitle)}">${esc(id)}</button>`;
+    }).join("");
+
+    const graphHtml = renderResolutionGraphSVG(detail, cand);
+    const matrixHtml = renderComparisonMatrix(detail, cand);
+    const multiCandHtml = cands.length > 1 ? renderMultiCandidateSection(cands) : "";
+    const drawerHtml = renderDrawerSection(detail, cand);
+
+    els.inspectorPane.innerHTML = `
+      <!-- VERDICT BANNER -->
+      <div class="card">
+        <div class="verdict-top">
+          <div class="verdict-badges">
+            <span class="pill lg ${dc}">${esc(out.decision)}</span>
+            <span class="pill lg indigo mono">${esc(out.reason_code)}</span>
+            <span class="pill neutral mono" title="Resolved customer_record_id">Customer: ${esc(cidDisp)}</span>
+            <span class="pill cyan">${esc(resAlert.resolution_status)}</span>
+            <span class="pill neutral">${esc(hitProf.entity_type)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            ${labelPill}
+            <span class="pill neutral mono">Screened: ${esc(detail.screened_at)}</span>
+          </div>
+        </div>
+        <div class="reason-box">${linkifyReasonText(out.reason || "", detail.records_by_id)}</div>
+        <div class="evidence-bar">
+          <span style="font-size:11px;color:var(--text-muted);margin-right:2px;">Minimal Evidence (${(out.evidence || []).length}):</span>
+          ${evidenceChipsHtml || '<span style="color:var(--text-muted);font-size:11px;">None</span>'}
+        </div>
+      </div>
+
+      <!-- INTERACTIVE SVG RESOLUTION GRAPH -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Entity & Evidence Resolution Graph</span>
+          <span style="font-size:11px;color:var(--text-muted);">Click any node to inspect raw source record</span>
+        </div>
+        <div class="graph-wrap">${graphHtml}</div>
+      </div>
+
+      ${multiCandHtml}
+
+      <!-- SIDE-BY-SIDE COMPARISON MATRIX -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Side-by-Side Policy Comparison ${cands.length > 1 ? `· Candidate ${cand.canonical_record_id || cand.cluster_id}` : ""}</span>
+          <span style="font-size:11px;color:var(--text-muted);">Trust Hierarchy: Tier 1 Verified > Tier 2 Declared > Tier 3 Contextual</span>
+        </div>
+        ${matrixHtml}
+      </div>
+
+      <!-- TABBED PROVENANCE DRAWER -->
+      <div class="card" id="provenanceDrawerCard">
+        ${drawerHtml}
+      </div>
+    `;
+
+    bindInspectorEvents(detail);
+  }
+
+  function renderResolutionGraphSVG(detail, cand) {
+    const out = detail.output;
+    const alert = detail.alert;
+    const hitProf = detail.hit_profile;
+    const trail = (cand && cand.raw_trail) || {};
+    const searchCand = (detail.search_shield_trace && detail.search_shield_trace.candidates) || [];
+
+    // Left column nodes (Customer side)
+    const leftNodes = [];
+    leftNodes.push({
+      id: alert.alert_id,
+      title: `Alert ${alert.alert_id}`,
+      sub: alert.account_ref ? `Ref: ${alert.account_ref}` : (alert.login_handle ? `Login: ${alert.login_handle}` : "Unlinked screen"),
+      badge: detail.screened_at,
+      fill: "#162033",
+      stroke: "#38bdf8",
+      dashed: false,
+    });
+
+    if (cand) {
+      if (cand.is_unresolved) {
+        leftNodes.push({
+          id: alert.alert_id,
+          title: "Unresolved Customer",
+          sub: "No unique CRM match",
+          badge: "UNRESOLVED",
+          fill: "#1e1b2e",
+          stroke: "#f59e0b",
+          dashed: true,
+        });
+      } else {
+        const merged = cand.record_ids && cand.record_ids.length > 1
+          ? `Merged: ${cand.record_ids.join(", ")}`
+          : `Record: ${cand.canonical_record_id}`;
+        leftNodes.push({
+          id: cand.canonical_record_id || cand.record_ids[0],
+          title: cand.canonical_record_id || "Customer Cluster",
+          sub: `${cand.effective_name || "Unknown"} · ${merged}`,
+          badge: detail.resolved_alert.resolution_status,
+          fill: "#132238",
+          stroke: "#6366f1",
+          dashed: false,
+        });
+      }
+
+      const quarantined = trail.quarantined_customers || [];
+      if (quarantined.length > 0) {
+        const q = quarantined[0];
+        leftNodes.push({
+          id: q.record_id,
+          title: `Quarantined: ${q.record_id}`,
+          sub: `${q.full_name || "?"} (DOB: ${q.dob || "?"})`,
+          badge: quarantined.length > 1 ? `FAMILY +${quarantined.length - 1}` : "SHARED PHONE",
+          fill: "#271c19",
+          stroke: "#f59e0b",
+          dashed: true,
+        });
+      }
+
+      const kycs = trail.kyc_checks || [];
+      kycs.slice(0, 3).forEach(k => {
+        const approved = k._tier_status === "TIER_1_APPROVED";
+        leftNodes.push({
+          id: k.check_id,
+          title: k.check_id,
+          sub: `${approved ? "Verified" : "Rejected/Expired"} · ${k.verified_dob || k.verified_name || k.document_country || ""}`,
+          badge: approved ? "TIER 1" : "TIER 0",
+          fill: approved ? "#0d2922" : "#181d26",
+          stroke: approved ? "#10b981" : "#64748b",
+          dashed: !approved,
+        });
+      });
+
+      const notes = trail.notes || [];
+      notes.slice(0, 2).forEach(n => {
+        const excl = n._tier_status === "TIER_0_EXCLUDED";
+        leftNodes.push({
+          id: n.note_id,
+          title: `${n.note_id} (${n.channel || "note"})`,
+          sub: (n.text || "").slice(0, 34) + ((n.text || "").length > 34 ? "…" : ""),
+          badge: excl ? "TIER 0" : "NOTE",
+          fill: excl ? "#181d26" : "#152235",
+          stroke: excl ? "#64748b" : "#38bdf8",
+          dashed: excl,
+        });
+      });
+    }
+
+    // Right column nodes (Watchlist + Search Shield)
+    const rightNodes = [];
+    rightNodes.push({
+      id: hitProf.hit_id,
+      title: `Hit ${hitProf.hit_id}`,
+      sub: `${hitProf.primary_name} (${hitProf.entity_type})`,
+      badge: out.decision === "SAME_ENTITY" ? "MATCH?" : "WATCHLIST",
+      fill: "#1f1930",
+      stroke: "#a78bfa",
+      dashed: false,
+    });
+
+    const dobTxt = hitProf.dobs && hitProf.dobs.length
+      ? `${hitProf.dobs.join(", ")} (${hitProf.dob_source})`
+      : "No DOB settled";
+    rightNodes.push({
+      id: hitProf.hit_id,
+      title: "Profile & Countries",
+      sub: `DOB: ${dobTxt}`,
+      badge: hitProf.countries.map(c => c.iso).join(", ") || "NO CTRY",
+      fill: "#162033",
+      stroke: "#64748b",
+      dashed: false,
+    });
+
+    if (hitProf.earliest_report_date || hitProf.deceased_date) {
+      rightNodes.push({
+        id: hitProf.hit_id,
+        title: hitProf.deceased_date ? "Deceased Date" : "Earliest Report",
+        sub: hitProf.deceased_date
+          ? `Died ${hitProf.deceased_date} (Screened ${detail.screened_at})`
+          : `Report dated ${hitProf.earliest_report_date}`,
+        badge: hitProf.deceased_date ? "DECEASED" : "DATED REPORT",
+        fill: "#271b24",
+        stroke: "#f43f5e",
+        dashed: false,
+      });
+    }
+
+    // Add up to 4 Search Shield rows (prioritize anchored/used first, then blocked decoys)
+    const sortedSr = [...searchCand].sort((a, b) => {
+      const rank = s => s === "USED_FOR_DOB" ? 0 : (s === "ANCHORED_NO_DOB" ? 1 : (s === "BLOCKED" ? 2 : 3));
+      return rank(a.status) - rank(b.status);
+    });
+    const shownSr = sortedSr.slice(0, 4);
+    shownSr.forEach(sr => {
+      const ok = sr.status === "USED_FOR_DOB" || sr.status === "ANCHORED_NO_DOB";
+      const blk = sr.status === "BLOCKED";
+      rightNodes.push({
+        id: sr.result_id,
+        title: `Search ${sr.result_id}`,
+        sub: ok ? (sr.snippet || "").slice(0, 34) + "…" : (sr.block_reason || "Blocked").slice(0, 34) + "…",
+        badge: sr.status === "USED_FOR_DOB" ? "ANCHORED" : sr.status,
+        fill: ok ? "#0d2922" : (blk ? "#25141c" : "#181d26"),
+        stroke: ok ? "#10b981" : (blk ? "#f43f5e" : "#64748b"),
+        dashed: blk || sr.status === "NOT_NEEDED",
+      });
+    });
+
+    const nodeH = 54;
+    const gapY = 12;
+    const topPad = 18;
+    const rows = Math.max(leftNodes.length, rightNodes.length, 3);
+    const svgH = Math.max(240, topPad * 2 + rows * nodeH + (rows - 1) * gapY);
+    const centerY = svgH / 2 - 42;
+
+    const decStroke = out.decision === "DIFFERENT_ENTITY" ? "#10b981" : (out.decision === "SAME_ENTITY" ? "#f43f5e" : "#f59e0b");
+    const decFill = out.decision === "DIFFERENT_ENTITY" ? "#0b2821" : (out.decision === "SAME_ENTITY" ? "#2d121d" : "#2b200d");
+
+    const evSet = new Set(out.evidence || []);
+
+    function drawBox(x, y, w, n) {
+      const dashAttr = n.dashed ? 'stroke-dasharray="5 3"' : "";
+      const isEv = evSet.has(n.id);
+      const badgeColor = n.stroke;
+      return `
+        <g class="g-node" data-focus-id="${esc(n.id)}">
+          <rect x="${x}" y="${y}" width="${w}" height="${nodeH}" rx="8"
+                fill="${n.fill}" stroke="${n.stroke}" stroke-width="${isEv ? 2 : 1.3}" ${dashAttr} />
+          <text x="${x + 11}" y="${y + 20}" fill="#f1f5f9" font-size="11.5" font-weight="700" font-family="ui-monospace, monospace">${esc(n.title)}</text>
+          <text x="${x + 11}" y="${y + 39}" fill="#94a3b8" font-size="10.5">${esc(n.sub)}</text>
+          <rect x="${x + w - 82}" y="${y + 7}" width="73" height="16" rx="4" fill="rgba(0,0,0,0.35)" stroke="${badgeColor}" stroke-width="0.8"/>
+          <text x="${x + w - 45.5}" y="${y + 18.5}" text-anchor="middle" fill="${badgeColor}" font-size="8.5" font-weight="700" font-family="ui-monospace, monospace">${esc(n.badge.slice(0, 11))}</text>
+        </g>
+      `;
+    }
+
+    let edges = "";
+    const leftPositions = leftNodes.map((_, i) => topPad + i * (nodeH + gapY));
+    const rightPositions = rightNodes.map((_, i) => topPad + i * (nodeH + gapY));
+
+    // Left internal links + edges to Center Verdict
+    leftNodes.forEach((n, i) => {
+      const yMid = leftPositions[i] + nodeH / 2;
+      if (i > 0) {
+        const y0 = leftPositions[0] + nodeH / 2;
+        edges += `<path d="M 30 ${y0} C 8 ${y0}, 8 ${yMid}, 30 ${yMid}" fill="none" stroke="${n.dashed ? '#475569' : '#334155'}" stroke-width="1.2" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
+      }
+      const isEv = evSet.has(n.id) || (i === 1 && !cand.is_unresolved);
+      const col = isEv ? decStroke : "#334155";
+      const op = isEv ? "0.85" : "0.35";
+      const sw = isEv ? "1.8" : "1";
+      edges += `<path d="M 300 ${yMid} C 345 ${yMid}, 345 ${centerY + 42}, 385 ${centerY + 42}" fill="none" stroke="${col}" stroke-opacity="${op}" stroke-width="${sw}" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
+    });
+
+    // Right edges from Center Verdict to Watchlist nodes
+    rightNodes.forEach((n, i) => {
+      const yMid = rightPositions[i] + nodeH / 2;
+      const isEv = evSet.has(n.id) || i === 0;
+      const col = (n.status === "BLOCKED") ? "#f43f5e" : (isEv ? decStroke : "#334155");
+      const op = (n.status === "BLOCKED") ? "0.45" : (isEv ? "0.85" : "0.35");
+      const sw = isEv && !n.dashed ? "1.8" : "1";
+      edges += `<path d="M 595 ${centerY + 42} C 635 ${centerY + 42}, 635 ${yMid}, 680 ${yMid}" fill="none" stroke="${col}" stroke-opacity="${op}" stroke-width="${sw}" ${n.dashed ? 'stroke-dasharray="4 3"' : ''}/>`;
+    });
+
+    const leftSvg = leftNodes.map((n, i) => drawBox(30, leftPositions[i], 270, n)).join("");
+    const rightSvg = rightNodes.map((n, i) => drawBox(680, rightPositions[i], 270, n)).join("");
+
+    const centerSvg = `
+      <g>
+        <rect x="385" y="${centerY}" width="210" height="84" rx="10" fill="${decFill}" stroke="${decStroke}" stroke-width="2"/>
+        <text x="490" y="${centerY + 23}" text-anchor="middle" fill="#94a3b8" font-size="9.5" font-weight="700" letter-spacing="1">POLICY ENGINE VERDICT</text>
+        <text x="490" y="${centerY + 46}" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="700">${esc(out.decision)}</text>
+        <text x="490" y="${centerY + 66}" text-anchor="middle" fill="${decStroke}" font-size="11" font-weight="700" font-family="ui-monospace, monospace">${esc(out.reason_code)}</text>
+      </g>
+    `;
+
+    const overflowNote = sortedSr.length > 4
+      ? `<text x="680" y="${svgH - 6}" fill="#64748b" font-size="10">+ ${sortedSr.length - 4} more Search Shield candidate(s) in Watchlist tab</text>`
+      : "";
+
+    return `
+      <svg class="graph-svg" viewBox="0 0 980 ${svgH}" preserveAspectRatio="xMidYMid meet">
+        <text x="30" y="12" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">CUSTOMER SIDE (RECONSTRUCTED)</text>
+        <text x="490" y="12" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">REASONING GATE</text>
+        <text x="680" y="12" fill="#64748b" font-size="9.5" font-weight="700" letter-spacing="0.8">WATCHLIST & SEARCH SHIELD</text>
+        ${edges}
+        ${leftSvg}
+        ${centerSvg}
+        ${rightSvg}
+        ${overflowNote}
+      </svg>
+    `;
+  }
+
+  function renderMultiCandidateSection(cands) {
+    const rows = cands.map((c, idx) => {
+      const ev = c.evaluation || {};
+      const sel = idx === state.selectedCandidateIdx ? "selected-cand" : "";
+      const dc = decClass(ev.decision);
+      const countries = (c.countries || []).map(x => `${x.name} (${x.iso})`).join(", ") || "Unknown";
+      return `
+        <tr class="cand-row ${sel}" data-cand-idx="${idx}">
+          <td class="mono"><strong>${esc(c.canonical_record_id || c.cluster_id)}</strong>${c.record_ids.length > 1 ? `<br><span style="font-size:10px;color:var(--text-muted);">Cluster: ${esc(c.record_ids.join(", "))}</span>` : ""}</td>
+          <td>${esc(c.effective_name || "Unknown")}</td>
+          <td class="mono">${esc(c.dob || "None")}</td>
+          <td>${esc(countries)}</td>
+          <td><span class="pill ${dc}">${esc(ev.decision || "—")}</span></td>
+          <td class="mono">${esc((ev.all_applicable_codes || [ev.reason_code]).join(", "))}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div class="card" style="border-color:var(--amber-border);">
+        <div class="card-header">
+          <span class="card-title" style="color:#fcd34d;">Ambiguous Customer Multi-Candidate Evaluation (${cands.length} distinct people)</span>
+          <span style="font-size:11px;color:var(--text-muted);">Click a row to inspect that candidate's trail below</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Candidate ID</th>
+              <th>Effective Name</th>
+              <th>DOB / Inc.</th>
+              <th>Countries</th>
+              <th>Independent Decision</th>
+              <th>Applicable Rules</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderComparisonMatrix(detail, cand) {
+    if (!cand) return `<div style="color:var(--text-muted);">No candidate profile.</div>`;
+    const hitProf = detail.hit_profile;
+    const ev = cand.evaluation || {};
+    const facts = ev.facts || {};
+
+    // 1. Entity Type
+    const etSame = cand.entity_type === hitProf.entity_type;
+    const etBadge = etSame ? `<span class="pill neutral">AGREE</span>` : `<span class="pill diff">MISMATCH (CLEAR)</span>`;
+
+    // 2. Names
+    const custNameHtml = cand.verified_name
+      ? `<div><span class="pill indigo" style="margin-right:4px;">TIER 1 VERIFIED</span> <strong>${esc(cand.verified_name)}</strong> <span class="mono" style="color:var(--text-muted);font-size:11px;">(${esc(cand.verified_name_source_id)})</span></div>`
+      : "";
+    const declHtml = (cand.declared_names || []).map(d =>
+      `<div style="font-size:11px;color:var(--text-secondary);">Declared: <strong>${esc(d.name)}</strong> <span class="mono" style="color:var(--text-muted);">(${esc(d.source_id)})</span></div>`
+    ).join("");
+    const hitNamesHtml = `<div><strong>${esc(hitProf.primary_name)}</strong></div>` +
+      (hitProf.all_names.length > 1
+        ? `<div style="font-size:11px;color:var(--text-secondary);">Aliases: ${esc(hitProf.all_names.slice(1).join(" · "))}</div>`
+        : "");
+
+    let nameBadge = `<span class="pill neutral">UNRESOLVED / INCONCLUSIVE</span>`;
+    if (facts.short_individual_name) nameBadge = `<span class="pill rev">&lt; 2 REAL PARTS</span>`;
+    else if (facts.name_agrees) nameBadge = `<span class="pill same">NAME AGREES</span>`;
+    else if (ev.reason_code === "NAME_MISMATCH_VERIFIED" || (ev.all_applicable_codes || []).includes("NAME_MISMATCH_VERIFIED")) {
+      nameBadge = `<span class="pill diff">VERIFIED MISMATCH</span>`;
+    }
+
+    // 3. DOB Waterfall
+    const custDobHtml = cand.dob
+      ? `<span class="pill ${cand.dob_is_verified ? 'indigo' : 'neutral'}" style="margin-right:5px;">${cand.dob_is_verified ? 'TIER 1 VERIFIED' : 'DECLARED'}</span> <strong class="mono">${esc(cand.dob)}</strong> <span class="mono" style="color:var(--text-muted);font-size:11px;">(${esc(cand.dob_source_id)})</span>`
+      : `<span style="color:var(--text-muted);">Not settled</span>`;
+
+    const wfLabels = {
+      dobs_field: "Step 1 · Structured dobs[]",
+      profile_notes: "Step 2 · First-para profile_notes",
+      search_results: "Step 3 · Anchored search_results",
+    };
+    const hitDobHtml = hitProf.dobs && hitProf.dobs.length
+      ? `<div><span class="pill cyan" style="margin-right:5px;">${esc(wfLabels[hitProf.dob_source] || hitProf.dob_source)}</span> <strong class="mono">${esc(hitProf.dobs.join(", "))}</strong></div>` +
+        (hitProf.dob_detail ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Detail: ${esc(hitProf.dob_detail)}</div>` : "")
+      : `<span style="color:var(--text-muted);">None across 3-step waterfall</span>`;
+
+    let dobBadge = `<span class="pill neutral">INCONCLUSIVE</span>`;
+    if (facts.dob_status === "AGREE") dobBadge = `<span class="pill same">AGREE</span>`;
+    else if (facts.dob_status === "CONTRADICT") dobBadge = `<span class="pill diff">CONTRADICT</span>`;
+
+    // 4. Countries
+    const sharedSet = new Set(facts.shared_countries || []);
+    const custCtryHtml = (cand.countries || []).length
+      ? cand.countries.map(c => {
+          const isShared = sharedSet.has(c.iso);
+          const pCls = isShared ? "same" : (facts.countries_disjoint ? "diff" : "neutral");
+          return `<span class="pill ${pCls}" style="margin:0 4px 4px 0;" title="Sources: ${esc(c.sources.join(', '))}">${esc(c.name)} (${esc(c.iso)}) · ${esc(c.sources.join(","))}</span>`;
+        }).join("")
+      : `<span style="color:var(--text-muted);">No settled country</span>`;
+
+    const hitCtryHtml = (hitProf.countries || []).length
+      ? hitProf.countries.map(c => {
+          const isShared = sharedSet.has(c.iso);
+          const pCls = isShared ? "same" : (facts.countries_disjoint ? "diff" : "neutral");
+          return `<span class="pill ${pCls}" style="margin:0 4px 4px 0;">${esc(c.name)} (${esc(c.iso)})</span>`;
+        }).join("")
+      : `<span style="color:var(--text-muted);">None listed</span>`;
+
+    let ctryBadge = `<span class="pill neutral">INCOMPLETE</span>`;
+    if (sharedSet.size > 0) ctryBadge = `<span class="pill same">SHARED (${Array.from(sharedSet).join(", ")})</span>`;
+    else if (facts.countries_disjoint) ctryBadge = `<span class="pill diff">DISJOINT</span>`;
+
+    // 5. Temporal / Life Status
+    const custTemp = `Screened: <span class="mono">${esc(detail.screened_at)}</span>` +
+      (facts.max_age_at_report !== null && facts.max_age_at_report !== undefined
+        ? `<br><span style="font-size:11px;color:var(--text-secondary);">Max age at earliest report: <strong>${facts.max_age_at_report}</strong> (min 16 required)</span>`
+        : "");
+    const hitTempParts = [];
+    if (hitProf.earliest_report_date) hitTempParts.push(`Earliest report: <span class="mono">${esc(hitProf.earliest_report_date)}</span>`);
+    if (hitProf.deceased_date) hitTempParts.push(`Deceased date: <span class="mono">${esc(hitProf.deceased_date)}</span>`);
+    else if (hitProf.life_status) hitTempParts.push(`Life status: <strong>${esc(hitProf.life_status)}</strong> (no deceased_date)`);
+    const hitTemp = hitTempParts.length ? hitTempParts.join("<br>") : `<span style="color:var(--text-muted);">No dated report or death date</span>`;
+
+    let tempBadge = `<span class="pill neutral">OK / N/A</span>`;
+    const codes = ev.all_applicable_codes || [];
+    if (codes.includes("DECEASED")) tempBadge = `<span class="pill diff">DECEASED PRIOR</span>`;
+    else if (codes.includes("TEMPORAL_IMPOSSIBILITY")) tempBadge = `<span class="pill diff">TEMPORAL IMPOSSIBLE</span>`;
+
+    return `
+      <table>
+        <thead>
+          <tr>
+            <th style="width:140px;">Attribute</th>
+            <th>Customer Side (Resolved Profile)</th>
+            <th>Watchlist Side (Hit Profile)</th>
+            <th style="width:160px;">Comparison</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Entity Type</strong></td>
+            <td>${esc(cand.entity_type)}</td>
+            <td>${esc(hitProf.entity_type)}</td>
+            <td>${etBadge}</td>
+          </tr>
+          <tr>
+            <td><strong>Names & Aliases</strong></td>
+            <td>${custNameHtml}${declHtml || (custNameHtml ? "" : "<span style='color:var(--text-muted);'>None</span>")}</td>
+            <td>${hitNamesHtml}</td>
+            <td>${nameBadge}</td>
+          </tr>
+          <tr>
+            <td><strong>DOB / Inc. Date</strong></td>
+            <td>${custDobHtml}</td>
+            <td>${hitDobHtml}</td>
+            <td>${dobBadge}</td>
+          </tr>
+          <tr>
+            <td><strong>Countries & Territories</strong></td>
+            <td>${custCtryHtml}</td>
+            <td>${hitCtryHtml}</td>
+            <td>${ctryBadge}</td>
+          </tr>
+          <tr>
+            <td><strong>Temporal & Life Status</strong></td>
+            <td>${custTemp}</td>
+            <td>${hitTemp}</td>
+            <td>${tempBadge}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderDrawerSection(detail, cand) {
+    const tabs = [
+      { id: "evidence", label: `Deciding Evidence (${(detail.output.evidence || []).length})` },
+      { id: "customer", label: "Customer Trail" },
+      { id: "watchlist", label: "Watchlist & Search Shield" },
+      { id: "json", label: "Raw Output & Labels" },
+    ];
+
+    const navHtml = `<div class="tabs-nav">${tabs.map(t => `
+      <button class="tab-btn ${state.activeTab === t.id ? "active" : ""}" data-tab="${t.id}">${esc(t.label)}</button>
+    `).join("")}</div>`;
+
+    let bodyHtml = "";
+    if (state.activeTab === "evidence") bodyHtml = renderEvidenceTab(detail);
+    else if (state.activeTab === "customer") bodyHtml = renderCustomerTrailTab(detail, cand);
+    else if (state.activeTab === "watchlist") bodyHtml = renderWatchlistTab(detail);
+    else bodyHtml = renderRawJsonTab(detail);
+
+    return navHtml + bodyHtml;
+  }
+
+  function renderRecordCard(kind, id, data, extraClass = "", badgeHtml = "") {
+    const focused = state.focusedRecordId === id ? "focused" : "";
+    const entries = Object.entries(data || {}).filter(([k]) => k !== "_tier_status");
+    const kvHtml = entries.map(([k, v]) => {
+      const valStr = (v === null || v === undefined)
+        ? '<span style="color:var(--text-muted);">null</span>'
+        : (typeof v === "object" ? esc(JSON.stringify(v)) : esc(String(v)));
+      return `<div class="kv-k">${esc(k)}</div><div class="kv-v">${valStr}</div>`;
+    }).join("");
+
+    return `
+      <div class="record-card ${extraClass} ${focused}" data-record-card="${esc(id)}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding-bottom:6px;">
+          <div>
+            <span class="mono" style="font-weight:700;color:#67e8f9;">${esc(id)}</span>
+            <span style="font-size:11px;color:var(--text-secondary);margin-left:6px;">${esc(kind)}</span>
+          </div>
+          ${badgeHtml}
+        </div>
+        <div class="kv-list">${kvHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderEvidenceTab(detail) {
+    const ids = [...(detail.output.evidence || [])];
+    if (state.focusedRecordId && !ids.includes(state.focusedRecordId) && detail.records_by_id[state.focusedRecordId]) {
+      ids.unshift(state.focusedRecordId);
+    }
+    if (!ids.length) return `<div style="color:var(--text-muted);">No deciding evidence IDs.</div>`;
+
+    const cards = ids.map(id => {
+      const rec = detail.records_by_id[id];
+      if (!rec) return `<div class="record-card">${esc(id)} (record unavailable)</div>`;
+      const isDeciding = (detail.output.evidence || []).includes(id);
+      const badge = isDeciding ? `<span class="pill cyan">DECIDING EVIDENCE</span>` : `<span class="pill neutral">INSPECTED</span>`;
+      return renderRecordCard(rec.kind, id, rec.data, "", badge);
+    }).join("");
+    return `<div class="record-grid">${cards}</div>`;
+  }
+
+  function renderCustomerTrailTab(detail, cand) {
+    const trail = (cand && cand.raw_trail) || {};
+    const sections = [];
+
+    sections.push(`<div style="margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:6px;">Alert & Direct Link</div>
+      <div class="record-grid">
+        ${renderRecordCard("Alert", detail.alert.alert_id, detail.alert)}
+        ${(detail.direct_accounts || []).map(a => renderRecordCard("Direct Account", a.account_id, a)).join("")}
+      </div>
+    </div>`);
+
+    if ((trail.customers || []).length) {
+      sections.push(`<div style="margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:6px;">Merged Person Cluster CRM Records (${trail.customers.length})</div>
+        <div class="record-grid">${trail.customers.map(c => renderRecordCard("Customer CRM", c.record_id, c, "", c.record_id === cand.canonical_record_id ? '<span class="pill indigo">CANONICAL</span>' : '<span class="pill neutral">MERGED</span>')).join("")}</div>
+      </div>`);
+    }
+
+    if ((trail.quarantined_customers || []).length) {
+      sections.push(`<div style="margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:6px;color:#fcd34d;">Quarantined Family / Shared-Phone CRM Records (${trail.quarantined_customers.length})</div>
+        <div class="record-grid">${trail.quarantined_customers.map(q => renderRecordCard("Quarantined CRM", q.record_id, q, "excluded", '<span class="pill rev">QUARANTINED</span>')).join("")}</div>
+      </div>`);
+    }
+
+    if ((trail.kyc_checks || []).length) {
+      sections.push(`<div style="margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:6px;">KYC Checks (${trail.kyc_checks.length})</div>
+        <div class="record-grid">${trail.kyc_checks.map(k => {
+          const ok = k._tier_status === "TIER_1_APPROVED";
+          const b = ok ? '<span class="pill diff">TIER 1 APPROVED</span>' : '<span class="pill muted-strike">TIER 0 EXCLUDED</span>';
+          return renderRecordCard("KYC Check", k.check_id, k, ok ? "" : "excluded", b);
+        }).join("")}</div>
+      </div>`);
+    }
+
+    if ((trail.notes || []).length) {
+      sections.push(`<div style="margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:6px;">Customer Notes Harvested by Email (${trail.notes.length})</div>
+        <div class="record-grid">${trail.notes.map(n => {
+          const excl = n._tier_status === "TIER_0_EXCLUDED";
+          const b = excl ? '<span class="pill muted-strike">TIER 0 EXCLUDED</span>' : `<span class="pill cyan">${esc(n.channel || "note")}</span>`;
+          return renderRecordCard(`Note (${n.channel || "note"})`, n.note_id, n, excl ? "excluded" : "", b);
+        }).join("")}</div>
+      </div>`);
+    }
+
+    if ((trail.onboarding || []).length) {
+      sections.push(`<div>
+        <div class="card-title" style="margin-bottom:6px;">Onboarding & Accounts</div>
+        <div class="record-grid">
+          ${trail.onboarding.map(o => renderRecordCard("Onboarding", o.kyc_applicant_id, o)).join("")}
+          ${(trail.accounts || []).map(a => renderRecordCard("Account", a.account_id, a)).join("")}
+        </div>
+      </div>`);
+    }
+
+    return sections.join("");
+  }
+
+  function highlightProfileNotes(raw) {
+    if (!raw) return '<span style="color:var(--text-muted);">No profile_notes</span>';
+    return esc(raw).replace(
+      /(According to [^\n:]+;\s*[^:\n]+:)/gi,
+      '<span class="note-highlight">$1</span>'
+    ).replace(/\n/g, "<br>");
+  }
+
+  function renderWatchlistTab(detail) {
+    const st = detail.search_shield_trace || { candidates: [] };
+    const srRows = (st.candidates || []).map(r => {
+      let badgeCls = "neutral";
+      if (r.status === "USED_FOR_DOB") badgeCls = "diff";
+      else if (r.status === "ANCHORED_NO_DOB") badgeCls = "cyan";
+      else if (r.status === "BLOCKED") badgeCls = "same";
+
+      const foundC = (r.found_countries || []).map(c => `${c.name} (${c.iso})`).join(", ") || "None";
+      return `
+        <tr>
+          <td class="mono"><strong>${esc(r.result_id)}</strong><br><span style="font-size:10px;color:var(--text-muted);">${esc(r.query || "")}</span></td>
+          <td><div style="font-weight:600;margin-bottom:3px;">${esc(r.title || "")}</div><div style="color:var(--text-secondary);font-size:11.5px;">${esc(r.snippet || "")}</div></td>
+          <td>${r.phrase_matched ? '<span class="pill diff">✓ Phrase</span>' : '<span class="pill same">✗ Phrase</span>'}<br style="margin-bottom:4px;">${r.country_matched ? `<span class="pill diff" style="margin-top:4px;">✓ ${esc(foundC)}</span>` : `<span class="pill neutral" style="margin-top:4px;">Countries: ${esc(foundC)}</span>`}</td>
+          <td><span class="pill ${badgeCls}">${esc(r.status)}</span>${r.block_reason ? `<div style="font-size:10.5px;color:#fda4af;margin-top:4px;">${esc(r.block_reason)}</div>` : ""}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <div class="card-title" style="margin-bottom:6px;">Watchlist Profile Notes (earliest dated "According to" reports highlighted)</div>
+          <div style="background:#0b1120;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.55;">
+            ${highlightProfileNotes(detail.hit_raw && detail.hit_raw.profile_notes)}
+          </div>
+        </div>
+        <div>
+          <div class="card-title" style="margin-bottom:6px;">
+            Anti-Namesake Search Shield (${(st.candidates || []).length} candidate(s) · Required phrase: "${esc(st.listing_phrase || "")}")
+          </div>
+          ${st.skip_reason ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">${esc(st.skip_reason)}</div>` : ""}
+          ${srRows ? `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px;">Result ID</th>
+                  <th>Title & Snippet</th>
+                  <th style="width:165px;">Stage B Anchor Checks</th>
+                  <th style="width:200px;">Shield Outcome</th>
+                </tr>
+              </thead>
+              <tbody>${srRows}</tbody>
+            </table>
+          ` : `<div style="color:var(--text-muted);font-size:12px;">No Stage A search candidates matched hit names/aliases.</div>`}
+        </div>
+        <div>
+          <div class="card-title" style="margin-bottom:6px;">Raw Hit Record</div>
+          ${renderRecordCard("Watchlist Hit", detail.hit_raw.hit_id, detail.hit_raw)}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRawJsonTab(detail) {
+    const outStr = JSON.stringify(detail.output, null, 2);
+    const lblBlock = detail.label
+      ? `<div style="margin-top:12px;">
+           <div class="card-title" style="margin-bottom:6px;">Expected / Practice Label Reference</div>
+           <pre class="json-pre">${esc(JSON.stringify(detail.label, null, 2))}</pre>
+         </div>`
+      : "";
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span class="card-title">Serialized JSONL Output Record</span>
+          <button id="copyJsonBtn">Copy JSON</button>
+        </div>
+        <pre class="json-pre">${esc(outStr)}</pre>
+        ${lblBlock}
+      </div>
+    `;
+  }
+
+  function focusRecord(id) {
+    if (!id) return;
+    state.focusedRecordId = id;
+    state.activeTab = "evidence";
+    const cacheKey = `${state.currentDataset}:${state.selectedHitId}`;
+    const detail = state.detailCache.get(cacheKey);
+    if (detail) {
+      renderInspector(detail);
+      const targetCard = els.inspectorPane.querySelector(`[data-record-card="${CSS.escape(id)}"]`);
+      if (targetCard) targetCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  function bindInspectorEvents(detail) {
+    els.inspectorPane.querySelectorAll("[data-focus-id]").forEach(btn => {
+      btn.addEventListener("click", () => focusRecord(btn.getAttribute("data-focus-id")));
+    });
+
+    els.inspectorPane.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.activeTab = btn.getAttribute("data-tab");
+        renderInspector(detail);
+      });
+    });
+
+    els.inspectorPane.querySelectorAll(".cand-row").forEach(row => {
+      row.addEventListener("click", () => {
+        state.selectedCandidateIdx = parseInt(row.getAttribute("data-cand-idx"), 10) || 0;
+        renderInspector(detail);
+      });
+    });
+
+    const copyBtn = document.getElementById("copyJsonBtn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(detail.output));
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy JSON"; }, 1200);
+        } catch (_) {
+          copyBtn.textContent = "Clipboard blocked";
+        }
+      });
+    }
+  }
+
+  // Event Listeners
+  els.datasetSelect.addEventListener("change", e => loadDataset(e.target.value));
+  els.searchInput.addEventListener("input", e => {
+    state.filters.search = e.target.value;
+    applyFilters();
+  });
+  els.resStatusFilter.addEventListener("change", e => {
+    state.filters.resStatus = e.target.value;
+    applyFilters();
+  });
+  els.labeledOnlyChk.addEventListener("change", e => {
+    state.filters.labeledOnly = e.target.checked;
+    applyFilters();
+  });
+  els.resetFiltersBtn.addEventListener("click", () => {
+    state.filters = { decision: "ALL", reasonCode: "ALL", resStatus: "ALL", labeledOnly: false, search: "" };
+    els.searchInput.value = "";
+    els.resStatusFilter.value = "ALL";
+    els.labeledOnlyChk.checked = false;
+    renderAnalytics();
+    applyFilters();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", e => {
+    if (e.key === "/" && document.activeElement !== els.searchInput) {
+      e.preventDefault();
+      els.searchInput.focus();
+      return;
+    }
+    if (document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+    if (!state.filteredHits.length) return;
+    const idx = state.filteredHits.findIndex(h => h.hit_id === state.selectedHitId);
+    if (e.key === "ArrowDown" || e.key === "j") {
+      e.preventDefault();
+      const next = state.filteredHits[Math.min(state.filteredHits.length - 1, idx + 1)];
+      if (next) selectHit(next.hit_id);
+    } else if (e.key === "ArrowUp" || e.key === "k") {
+      e.preventDefault();
+      const prev = state.filteredHits[Math.max(0, idx - 1)];
+      if (prev) selectHit(prev.hit_id);
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
